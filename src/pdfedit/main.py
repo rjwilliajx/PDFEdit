@@ -16,9 +16,11 @@ class PDFEditWindow(QMainWindow):
         self.setWindowTitle("PDFEdit")
         self.setMinimumSize(900, 700)
 
-        label = QLabel("PDFEdit")
-        label.setStyleSheet("font-size: 32px;")
-        label.setMargin(30)
+        self.label = QLabel("PDFEdit")
+        self.label.setStyleSheet("font-size: 32px;")
+        self.label.setMargin(30)
+
+self.setCentralWidget(self.label)
 
         self.setCentralWidget(label)
 
