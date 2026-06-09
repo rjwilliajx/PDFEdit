@@ -1,6 +1,13 @@
 import sys
+from pathlib import Path
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel
+import fitz
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QLabel,
+    QMainWindow,
+)
 
 class PDFEditWindow(QMainWindow):
     def __init__(self):
