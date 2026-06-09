@@ -20,9 +20,31 @@ class PDFEditWindow(QMainWindow):
         self.label.setStyleSheet("font-size: 32px;")
         self.label.setMargin(30)
 
-self.setCentralWidget(self.label)
+        self.setCentralWidget(self.label)
+        file_menu = self.menuBar().addMenu("File")
 
-        self.setCentralWidget(label)
+        open_action = file_menu.addAction("Open PDF...")
+
+        open_action.triggered.connect(self.open_pdf)
+
+    def open_pdf(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+                    self,
+                    "Open PDF",
+                    "",
+                    "PDF Files (*.pdf)"
+     )
+        if not file_path:
+                return
+                    
+                print(file_path)
+        document = fitz.open(file_path)
+
+        self.label.setText(
+
+            f"File: {Path(file_path).name}\n\nPages: {document.page_count}"
+
+        )
 
 def main():
     app = QApplication(sys.argv)
