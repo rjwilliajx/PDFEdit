@@ -1,9 +1,10 @@
+from asyncio import subprocess
 import sys
 from pathlib import Path
 from tkinter import dialog
 
 import fitz
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap, QImage, QPainter
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QApplication,
@@ -18,6 +19,7 @@ class PDFEditWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.document = None
+        
         self.current_page = 0
         self.zoom_level = 1.0
 
@@ -39,6 +41,7 @@ class PDFEditWindow(QMainWindow):
         self.scroll_area.setWidgetResizable(True)
 
         self.setCentralWidget(self.scroll_area)
+        
         file_menu = self.menuBar().addMenu("File")
 
         open_action = file_menu.addAction("Open PDF...")
@@ -114,18 +117,24 @@ class PDFEditWindow(QMainWindow):
             return
 
         self.document = fitz.open(file_path)
+        self.current_file_path = file_path
         self.current_page = 0
         self.render_page()
 
     def print_pdf(self):
-
         if self.document is None:
             return
-        printer = QPrinter()
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         dialog = QPrintDialog(printer, self)
 
-        if dialog.exec():
-            self.label.render(printer)
+        if dialog.exec() != QPrintDialog.DialogCode.Accepted:
+            return
+
+        painter = QPainter(printer)
+        self.label.pixmap().render(painter)
+        painter.end()
+
+
 
     def render_page(self):
         if self.document is None:
