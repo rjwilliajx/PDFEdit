@@ -1,4 +1,10 @@
 # PDFEdit
+PDFEdit
+
+Created by Rick Williams
+Copyright © 2026 Rick Williams
+
+A free desktop PDF editor designed to provide simple PDF editing capabilities without requiring a subscription.
 
 PDFEdit is a simple, local-first PDF editor designed to make editing PDF documents as easy as editing a Word document.
 
