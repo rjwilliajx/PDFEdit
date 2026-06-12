@@ -126,3 +126,23 @@ To be determined.
 ## **Status**
 
 Planning and proof-of-concept phase.
+
+## **Current Status**
+
+PDFEdit Viewer v0.1
+
+Implemented Features
+- Open PDF
+- View PDF
+- Scroll
+- Previous/Next Page
+- Zoom In/Out
+- Print PDF
+- Close PDF
+
+Planned Features
+- Add Text
+- Edit Existing Text
+- Save Modified PDF
+- Insert Images
+- Signatures

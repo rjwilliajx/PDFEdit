@@ -1,11 +1,12 @@
 from pathlib import Path
+from pydoc import text
 import subprocess
 import fitz
+from text_tools import show_add_text_dialog
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QFileDialog,
-    QInputDialog,
     QLabel,
     QMainWindow,
     QScrollArea,
@@ -18,6 +19,7 @@ class PDFEditWindow(QMainWindow):
         
         self.current_page = 0
         self.zoom_level = 1.0
+        self.current_file_path = None
 
         self.setWindowTitle("PDFEdit")
         self.setMinimumSize(900, 700)
@@ -37,6 +39,7 @@ class PDFEditWindow(QMainWindow):
         self.scroll_area.setWidgetResizable(True)
 
         self.setCentralWidget(self.scroll_area)
+        
         
         file_menu = self.menuBar().addMenu("File")
 
@@ -70,26 +73,35 @@ class PDFEditWindow(QMainWindow):
         
         close_action.triggered.connect(self.close_pdf)
 
+        reset_action = view_menu.addAction("Reset Document")
+        reset_action.triggered.connect(self.reset_document)
+
     def add_text(self):
         if self.document is None:
             return
 
-        text, ok = QInputDialog.getText(
-             self,
-             "Add Text",
-            "Enter text to add:"
+        text, font_name, font_size, color_name = show_add_text_dialog(self)
+        if not text:
+            return
+
+        page = self.document.load_page(self.current_page)
+        color_map = {
+            "Black": (0, 0, 0),
+            "Red": (1, 0, 0),
+             "Blue": (0, 0, 1),
+        }
+        print(text, font_name, font_size, color_name)
+        page.insert_text(
+             (72, 72),
+            text,
+            fontname=font_name,
+            fontsize=font_size,
+            color=color_map[color_name],
         )
 
-        if ok and text:
-            page = self.document.load_page(self.current_page)
-            page.insert_text(
-                (72, 72),
-                text,
-                fontsize=14,
-                color=(0, 0, 0),
-            )
+        self.render_page()
 
-            self.render_page()
+    
 
     def previous_page(self):
         if self.document is None:
@@ -156,7 +168,13 @@ class PDFEditWindow(QMainWindow):
         self.label.pixmap().render(painter)
         painter.end()
 
+    def reset_document(self):
 
+            if self.current_file_path is None:
+                return
+            self.document = fitz.open(self.current_file_path)
+            self.current_page = 0
+            self.render_page()
 
     def render_page(self):
         if self.document is None:
@@ -174,6 +192,8 @@ class PDFEditWindow(QMainWindow):
             pix.stride,
             QImage.Format.Format_RGB888,
         )
+
+
 
         self.label.setPixmap(QPixmap.fromImage(image))
         self.label.adjustSize()
