@@ -12,24 +12,49 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
+
+
+class ClickableLabel(QLabel):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.click_handler = None
+
+    def mousePressEvent(self, event):
+        x = int(event.position().x())
+        y = int(event.position().y())
+        if self.click_handler:
+            self.click_handler(x, y)
+
+        super().mousePressEvent(event)
+
 class PDFEditWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.document = None
-        
+        self.pending_text = None
+        self.pending_font = None
+        self.pending_size = None
+        self.pending_color = None
+
         self.current_page = 0
         self.zoom_level = 1.0
         self.current_file_path = None
 
         self.setWindowTitle("PDFEdit")
         self.setMinimumSize(900, 700)
+        self.last_click_x = 72
+        self.last_click_y = 72
+        self.label = ClickableLabel()
 
-        self.label = QLabel(
-             "PDFEdit\n\n"
-             "Open a PDF using File → Open PDF.\n\n"
-             "Use View to navigate pages, zoom, or close the PDF."
+        self.label.setText(
+            "PDFEdit\n\n"
+            "Open a PDF using File → Open PDF.\n\n"
+            "Use View to navigate pages, zoom, or close the PDF."
 
         )
+
+        self.label.click_handler = self.handle_pdf_click
         self.label.setStyleSheet("font-size: 16px;")
         self.label.setMargin(30)
 
@@ -76,6 +101,8 @@ class PDFEditWindow(QMainWindow):
         reset_action = view_menu.addAction("Reset Document")
         reset_action.triggered.connect(self.reset_document)
 
+    
+
     def add_text(self):
         if self.document is None:
             return
@@ -83,25 +110,23 @@ class PDFEditWindow(QMainWindow):
         text, font_name, font_size, color_name = show_add_text_dialog(self)
         if not text:
             return
-
-        page = self.document.load_page(self.current_page)
+    
         color_map = {
             "Black": (0, 0, 0),
             "Red": (1, 0, 0),
-             "Blue": (0, 0, 1),
+            "Blue": (0, 0, 1),
         }
-        print(text, font_name, font_size, color_name)
-        page.insert_text(
-             (72, 72),
-            text,
-            fontname=font_name,
-            fontsize=font_size,
-            color=color_map[color_name],
-        )
+
+        self.pending_text = text
+        self.pending_font = font_name
+        self.pending_size = font_size
+        self.pending_color = color_map[color_name]
+
+        print("Click on the PDF to place the text.")
 
         self.render_page()
 
-    
+
 
     def previous_page(self):
         if self.document is None:
@@ -137,6 +162,7 @@ class PDFEditWindow(QMainWindow):
         self.document = None
         self.current_page = 0
         self.label.clear()
+        self.label.setMargin(30)
         self.label.setText("PDFEdit")
 
     def open_pdf(self):
@@ -151,6 +177,7 @@ class PDFEditWindow(QMainWindow):
             return
 
         self.document = fitz.open(file_path)
+        self.label.setMargin(0)
         self.current_file_path = file_path
         self.current_page = 0
         self.render_page()
@@ -174,6 +201,30 @@ class PDFEditWindow(QMainWindow):
                 return
             self.document = fitz.open(self.current_file_path)
             self.current_page = 0
+            self.render_page()
+    
+    def handle_pdf_click(self, x, y):
+        self.last_click_x = x
+        self.last_click_y = y
+
+        print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
+
+        if self.pending_text:
+            page = self.document.load_page(self.current_page)
+            page.insert_text(
+                (x, y),
+                self.pending_text,
+                fontname=self.pending_font,
+                fontsize=self.pending_size,
+                color=self.pending_color,
+
+            )
+
+            self.pending_text = None
+            self.pending_font = None
+            self.pending_size = None
+            self.pending_color = None
+
             self.render_page()
 
     def render_page(self):
