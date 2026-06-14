@@ -1,8 +1,9 @@
 from pathlib import Path
-from pydoc import text
 import subprocess
 import fitz
-from text_tools import show_add_text_dialog
+from content_tools import show_add_content_menu
+from text_tools import create_text_content
+from date_tools import create_date_content
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -36,6 +37,7 @@ class PDFEditWindow(QMainWindow):
         self.pending_font = None
         self.pending_size = None
         self.pending_color = None
+        self.pending_content = None
 
         self.current_page = 0
         self.zoom_level = 1.0
@@ -76,8 +78,8 @@ class PDFEditWindow(QMainWindow):
 
         edit_menu = self.menuBar().addMenu("Edit")
 
-        add_text_action = edit_menu.addAction("Add Text")
-        add_text_action.triggered.connect(self.add_text)
+        add_content_action = edit_menu.addAction("Add Content")
+        add_content_action.triggered.connect(self.add_content)
 
         view_menu = self.menuBar().addMenu("View")
 
@@ -101,32 +103,47 @@ class PDFEditWindow(QMainWindow):
         reset_action = view_menu.addAction("Reset Document")
         reset_action.triggered.connect(self.reset_document)
 
+    def add_content(self):
+        content_type = show_add_content_menu(self)
+   
+        if content_type is None:
+            return
+        print(f"Selected Content Type: {content_type}")
     
+        if content_type == "Text":
+            self.add_text()
+
+        elif content_type == "Date":
+            self.add_date()
+
+        else:
+            print(f"{content_type} selected")
 
     def add_text(self):
+
         if self.document is None:
             return
 
-        text, font_name, font_size, color_name = show_add_text_dialog(self)
-        if not text:
+        content = create_text_content(self)
+
+        if content is None:
             return
-    
-        color_map = {
-            "Black": (0, 0, 0),
-            "Red": (1, 0, 0),
-            "Blue": (0, 0, 1),
-        }
 
-        self.pending_text = text
-        self.pending_font = font_name
-        self.pending_size = font_size
-        self.pending_color = color_map[color_name]
+        self.pending_content = content
+        print("Click on the PDF to place the content.")
 
-        print("Click on the PDF to place the text.")
+    def add_date(self):
 
-        self.render_page()
+        if self.document is None:
+            return
 
+        content = create_date_content(self)
 
+        if content is None:
+            return
+
+        self.pending_content = content
+        print("Click on the PDF to place the content.")
 
     def previous_page(self):
         if self.document is None:
@@ -137,9 +154,6 @@ class PDFEditWindow(QMainWindow):
            self.render_page()
 
     def zoom_in(self):
-        if self.document is None:
-            return   
-        
         self.zoom_level *= 1.25
         self.render_page()
 
@@ -208,24 +222,23 @@ class PDFEditWindow(QMainWindow):
         self.last_click_y = y
 
         print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
+        print(f"Pending content at click: {self.pending_content}")
 
-        if self.pending_text:
-            page = self.document.load_page(self.current_page)
-            page.insert_text(
-                (x, y),
-                self.pending_text,
-                fontname=self.pending_font,
-                fontsize=self.pending_size,
-                color=self.pending_color,
+        if self.pending_content:
+            if self.pending_content["type"] in ["Text", "Date"]:
+                print("Inserting text now")
 
-            )
+                page = self.document.load_page(self.current_page)
+                page.insert_text(
+                    (x, y),
+                    self.pending_content["text"],
+                    fontname=self.pending_content["font"],
+                    fontsize=self.pending_content["size"],
+                    color=self.pending_content["color"],
+                )
 
-            self.pending_text = None
-            self.pending_font = None
-            self.pending_size = None
-            self.pending_color = None
-
-            self.render_page()
+                self.pending_content = None
+                self.render_page()
 
     def render_page(self):
         if self.document is None:
