@@ -242,21 +242,35 @@ class PDFEditWindow(QMainWindow):
         print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
         print(f"Pending content at click: {self.pending_content}")
 
-        if self.pending_content:
-            if self.pending_content["type"] in ["Text", "Date", "Signature"]:
-                print("Inserting text now")
+        if self.pending_content is None:
+            return
 
-                page = self.document.load_page(self.current_page)
-                page.insert_text(
-                    (x, y),
-                    self.pending_content["text"],
-                    fontname=self.pending_content["font"],
-                    fontsize=self.pending_content["size"],
-                    color=self.pending_content["color"],
-                )
+        page = self.document.load_page(self.current_page)
 
-                self.pending_content = None
-                self.render_page()
+        if self.pending_content["type"] in ["Text", "Date"]:
+            page.insert_text(
+                (x, y),
+                self.pending_content["text"],
+                fontname=self.pending_content["font"],
+                fontsize=self.pending_content["size"],
+                color=self.pending_content["color"],
+            )
+
+        elif self.pending_content["type"] == "Signature":
+
+            print(f"Using signature fontfile: {self.pending_content['fontfile']}")
+
+            page.insert_text(
+                (x, y),
+                self.pending_content["text"],
+                fontname="signaturefont",
+                fontfile=self.pending_content["fontfile"],
+                fontsize=18,
+                color=self.pending_content["color"],
+            )
+
+        self.pending_content = None
+        self.render_page()
 
     def render_page(self):
         if self.document is None:

@@ -6,6 +6,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+from pathlib import Path
+FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 
 
 def show_add_signature_dialog(parent):
@@ -16,16 +18,23 @@ def show_add_signature_dialog(parent):
 
     style_dropdown = QComboBox()
     style_dropdown.addItems([
-        "Elegant Script",
-        "Formal Script",
-        "Handwritten",
-        "Cursive",
-        "Signature",
+            "Great Vibes",
+            "Allura",
+            "Dancing Script",
+    ])
+
+    signature_type_dropdown = QComboBox()
+    signature_type_dropdown.addItems([
+        "Conservative",
+        "Typical",
+        "Formal",
+        "Showpiece",
     ])
 
     form_layout = QFormLayout()
     form_layout.addRow("Signature:", signature_input)
     form_layout.addRow("Style:", style_dropdown)
+    form_layout.addRow("Signature Type:", signature_type_dropdown)
 
     add_button = QPushButton("Add Signature")
     add_button.clicked.connect(dialog.accept)
@@ -37,29 +46,41 @@ def show_add_signature_dialog(parent):
     dialog.setLayout(layout)
 
     if dialog.exec():
-        return signature_input.text(), style_dropdown.currentText()
 
-    return None, None
+        return (
+        signature_input.text(),
+        style_dropdown.currentText(),
+        signature_type_dropdown.currentText(),
+    )
+
+    return None, None, None
 
 def create_signature_content(parent):
-    signature_text, style_name = show_add_signature_dialog(parent)
+    signature_text, style_name, signature_type = show_add_signature_dialog(parent)
 
     if not signature_text:
         return None
 
     font_map = {
-        "Elegant Script": "Times-Roman",
-        "Formal Script": "Helvetica",
-        "Handwritten": "Courier",
-        "Cursive": "Times-Roman",
-        "Signature": "Helvetica",
+        "Great Vibes": FONT_DIR / "GreatVibes-Regular.ttf",
+        "Allura": FONT_DIR / "Allura-Regular.ttf",
+        "Dancing Script": FONT_DIR / "DancingScript-Regular.ttf",
     }
 
-    return {
+    size_map = {
+        "Conservative": 18,
+        "Typical": 24,
+        "Formal": 28,
+        "Showpiece": 36,
+    }
 
+    print(f"Using font: {font_map[style_name]}")
+    print(f"Signature type: {signature_type}, Size: {size_map[signature_type]}")
+
+    return {
         "type": "Signature",
         "text": signature_text,
-        "font": font_map[style_name],
-        "size": 18,
+        "fontfile": str(font_map[style_name]),
+        "size": size_map[signature_type],
         "color": (0, 0, 0),
     }
