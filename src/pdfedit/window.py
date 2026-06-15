@@ -4,6 +4,7 @@ import fitz
 from content_tools import show_add_content_menu
 from text_tools import create_text_content
 from date_tools import create_date_content
+from signature_tools import create_signature_content
 from PySide6.QtGui import QImage, QPainter, QPixmap
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
@@ -116,6 +117,9 @@ class PDFEditWindow(QMainWindow):
         elif content_type == "Date":
             self.add_date()
 
+        elif content_type == "Signature":
+            self.add_signature()
+
         else:
             print(f"{content_type} selected")
 
@@ -143,6 +147,20 @@ class PDFEditWindow(QMainWindow):
             return
 
         self.pending_content = content
+        print("Click on the PDF to place the content.")
+
+    def add_signature(self):
+
+        if self.document is None:
+            return
+        
+        content = create_signature_content(self)
+
+        if content is None:
+            return
+
+        self.pending_content = content
+
         print("Click on the PDF to place the content.")
 
     def previous_page(self):
@@ -225,7 +243,7 @@ class PDFEditWindow(QMainWindow):
         print(f"Pending content at click: {self.pending_content}")
 
         if self.pending_content:
-            if self.pending_content["type"] in ["Text", "Date"]:
+            if self.pending_content["type"] in ["Text", "Date", "Signature"]:
                 print("Inserting text now")
 
                 page = self.document.load_page(self.current_page)
