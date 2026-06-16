@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import fitz
+import time
 from debug_tools import debug_print
 from content_tools import show_add_content_menu
 from text_tools import create_text_content
@@ -291,54 +292,75 @@ class PDFEditWindow(QMainWindow):
             )
         
         elif self.pending_content["type"] == "Image":
+            start_time = time.time()
+            
             image_path = self.pending_content["image_path"]
             image_size = self.pending_content["size"]
-            
+
             reader = QImageReader(image_path)
             reader.setAutoTransform(True)
             image = reader.read()
 
-        if image_size == "Small":
-            width = 75
-            height = 75
+            print(f"Image read: {time.time() - start_time:.2f}s")
 
-        elif image_size == "Medium":
-            width = 150
-            height = 150
+            debug_print(f"Image loaded: isNull={image.isNull()}")
 
-        elif image_size == "Large":
-            width = 250
-            height = 250
+            if image.isNull():
+                print("Image could not be loaded.")
+                return
 
-        elif image_size == "Original":
-            width = image.width()
-            height = image.height()
+            original_width = image.width()
+            original_height = image.height()
 
-        else:
-            width = 150
-            height = 150
+            if image_size == "Small":
+                width = 75
 
-        image_rect = fitz.Rect(
-            x,
-            y,
-            x + width,
-            y + height,
-        )
+            elif image_size == "Medium":
+                width = 150
 
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
-            corrected_image_path = temp_file.name
+            elif image_size == "Large":
+                width = 250
 
-        image.save(corrected_image_path, "PNG")
+            elif image_size == "X-Large":
+                width = 500
 
-        page.insert_image(
-            image_rect,
-            filename=corrected_image_path,
-        )
+            else:
+                width = 150
+
+            aspect_ratio = original_height / original_width
+            height = int(width * aspect_ratio)
+
+            image_rect = fitz.Rect(
+                x,
+                y,
+                x + width,
+                y + height,
+            )
+
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                corrected_image_path = temp_file.name
+
+            scaled_image = image.scaled(
+                int(width),
+                int(height),
+            )
+
+            scaled_image.save(corrected_image_path, "PNG")
+
+            page.insert_image(
+                image_rect,
+                filename=corrected_image_path,
+            )
+
+            print(f"Image saved: {time.time() - start_time:.2f}s")
 
         
 
         self.pending_content = None
+        print(f"Before render: {time.time() - start_time:.2f}s")
         self.render_page()
+
+        print(f"Total time: {time.time() - start_time:.2f}s")
 
     def render_page(self):
         if self.document is None:

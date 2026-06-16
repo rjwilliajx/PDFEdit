@@ -27,7 +27,7 @@ def create_image_content(parent):
         "Small",
         "Medium",
         "Large",
-        "Original",
+        "X-Large",
     ])
 
     form_layout = QFormLayout()
