@@ -1,12 +1,15 @@
 from pathlib import Path
 import subprocess
+import tempfile
 import fitz
 from debug_tools import debug_print
 from content_tools import show_add_content_menu
 from text_tools import create_text_content
 from date_tools import create_date_content
 from signature_tools import create_signature_content
-from PySide6.QtGui import QImage, QPainter, QPixmap
+from image_tools import create_image_content
+from PIL import Image
+from PySide6.QtGui import QImage, QImageReader, QPainter, QPixmap
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -121,6 +124,9 @@ class PDFEditWindow(QMainWindow):
         elif content_type == "Signature":
             self.add_signature()
 
+        elif content_type == "Image":
+            self.add_image()
+
         else:
             print(f"{content_type} selected")
 
@@ -157,6 +163,18 @@ class PDFEditWindow(QMainWindow):
         
         content = create_signature_content(self)
 
+        if content is None:
+            return
+
+        self.pending_content = content
+
+        print("Click on the PDF to place the content.")
+
+    def add_image(self):
+        if self.document is None:
+            return
+
+        content = create_image_content(self)
         if content is None:
             return
 
@@ -271,6 +289,53 @@ class PDFEditWindow(QMainWindow):
                 fontsize=self.pending_content["size"],
                 color=self.pending_content["color"],
             )
+        
+        elif self.pending_content["type"] == "Image":
+            image_path = self.pending_content["image_path"]
+            image_size = self.pending_content["size"]
+            
+            reader = QImageReader(image_path)
+            reader.setAutoTransform(True)
+            image = reader.read()
+
+        if image_size == "Small":
+            width = 75
+            height = 75
+
+        elif image_size == "Medium":
+            width = 150
+            height = 150
+
+        elif image_size == "Large":
+            width = 250
+            height = 250
+
+        elif image_size == "Original":
+            width = image.width()
+            height = image.height()
+
+        else:
+            width = 150
+            height = 150
+
+        image_rect = fitz.Rect(
+            x,
+            y,
+            x + width,
+            y + height,
+        )
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            corrected_image_path = temp_file.name
+
+        image.save(corrected_image_path, "PNG")
+
+        page.insert_image(
+            image_rect,
+            filename=corrected_image_path,
+        )
+
+        
 
         self.pending_content = None
         self.render_page()
