@@ -123,26 +123,104 @@ Everyday document editing tasks shouldn't require expensive enterprise software.
 
 To be determined.
 
-## **Status**
+### **Status**
 
-Planning and proof-of-concept phase.
+Active Development
 
-## **Current Status**
+PDFEdit has completed the Viewer phase and is currently in the Additor phase.
+
+### **Current Status**
 
 PDFEdit Viewer v0.1
 
 Implemented Features
-- Open PDF
-- View PDF
-- Scroll
-- Previous/Next Page
-- Zoom In/Out
-- Print PDF
-- Close PDF
+
+* Open PDF
+* View PDF
+* Scroll PDF
+* Previous Page
+* Next Page
+* Zoom In
+* Zoom Out
+* Print PDF
+* Close PDF
+* Reset Document
+
+PDFEdit Additor v0.2
+
+Implemented Features
+
+Text
+
+* Add Text
+* Font Selection
+* Font Size Selection
+* Font Color Selection
+
+Dates
+
+* Insert Current Date
+* Font Selection
+* Font Size Selection
+* Font Color Selection
+
+Signatures
+
+* Typed Signatures
+* Multiple Signature Fonts
+    * Great Vibes
+    * Allura
+    * Dancing Script
+* Signature Types
+    * Conservative
+    * Typical
+    * Formal
+    * Showpiece
+
+Images
+
+* Insert Images
+* PNG Support
+* JPG Support
+* JPEG Support
+* BMP Support
+* Automatic Aspect Ratio Preservation
+* Automatic Phone Image Orientation Correction
+* Image Size Presets
+    * Small
+    * Medium
+    * Large
+    * X-Large
+
+In Progress
+
+* QR Code Generation
+* QR Code Placement
 
 Planned Features
-- Add Text
-- Edit Existing Text
-- Save Modified PDF
-- Insert Images
-- Signatures
+
+Saver v1.0 (Planned)
+
+* Save PDF
+* Save PDF As
+
+Editor v1.0 (Planned)
+
+* Edit Existing Text
+* Edit Existing Content
+
+Wrapper v1.0 (Planned)
+
+* Package Application
+* Create Installer
+* Update Documentation
+* Testing
+* Release
+
+Future Enhancements
+
+* White Space Detection
+* OCR Support
+* Page Management
+* Spell Checking
+* Grammar Review

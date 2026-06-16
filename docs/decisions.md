@@ -1,0 +1,5 @@
+- Original image size removed
+- X-Large = 500
+- Aspect ratio always preserved
+- Phone orientation auto-corrected
+- Typed signatures only for v1
