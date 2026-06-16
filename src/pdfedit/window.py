@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import fitz
+from debug_tools import debug_print
 from content_tools import show_add_content_menu
 from text_tools import create_text_content
 from date_tools import create_date_content
@@ -239,8 +240,8 @@ class PDFEditWindow(QMainWindow):
         self.last_click_x = x
         self.last_click_y = y
 
-        print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
-        print(f"Pending content at click: {self.pending_content}")
+        debug_print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
+        debug_print(f"Pending content at click: {self.pending_content}")
 
         if self.pending_content is None:
             return
@@ -258,14 +259,16 @@ class PDFEditWindow(QMainWindow):
 
         elif self.pending_content["type"] == "Signature":
 
-            print(f"Using signature fontfile: {self.pending_content['fontfile']}")
+            debug_print(
+                f"Using signature fontfile: {self.pending_content['fontfile']}"
+            )
 
             page.insert_text(
                 (x, y),
                 self.pending_content["text"],
                 fontname="signaturefont",
                 fontfile=self.pending_content["fontfile"],
-                fontsize=18,
+                fontsize=self.pending_content["size"],
                 color=self.pending_content["color"],
             )
 

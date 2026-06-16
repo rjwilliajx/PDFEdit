@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from pathlib import Path
+from debug_tools import debug_print
 FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 
 
@@ -74,8 +75,10 @@ def create_signature_content(parent):
         "Showpiece": 36,
     }
 
-    print(f"Using font: {font_map[style_name]}")
-    print(f"Signature type: {signature_type}, Size: {size_map[signature_type]}")
+    debug_print(f"Using font: {font_map[style_name]}")
+    debug_print(
+        f"Signature type: {signature_type}, Size: {size_map[signature_type]}"
+    )
 
     return {
         "type": "Signature",
