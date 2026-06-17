@@ -3,3 +3,5 @@
 __pycache__/
 *.pyc
 .vscode/
+.idea/
+src/pdfedit/temp_qr.png
