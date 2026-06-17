@@ -9,31 +9,51 @@ from text_tools import create_text_content
 from date_tools import create_date_content
 from signature_tools import create_signature_content
 from image_tools import create_image_content
+from qr_tools import generate_qr_code
 from PIL import Image
-from PySide6.QtGui import QImage, QImageReader, QPainter, QPixmap
+from PySide6.QtGui import QImage, QImageReader, QPainter, QPixmap, QColor
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QFileDialog,
+    QInputDialog,
     QLabel,
     QMainWindow,
     QScrollArea,
 )
 
 
-
 class ClickableLabel(QLabel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.click_handler = None
+        self.press_handler = None
+        self.move_handler = None
+        self.release_handler = None
 
     def mousePressEvent(self, event):
         x = int(event.position().x())
         y = int(event.position().y())
-        if self.click_handler:
-            self.click_handler(x, y)
+        if self.press_handler:
+            self.press_handler(x, y)
 
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        x = int(event.position().x())
+        y = int(event.position().y())
+        if self.move_handler:
+            self.move_handler(x, y)
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+
+        x = int(event.position().x())
+        y = int(event.position().y())
+        if self.release_handler:
+            self.release_handler(x, y)
+
+        super().mouseReleaseEvent(event)
 
 class PDFEditWindow(QMainWindow):
     def __init__(self):
@@ -44,6 +64,10 @@ class PDFEditWindow(QMainWindow):
         self.pending_size = None
         self.pending_color = None
         self.pending_content = None
+        self.preview_content = None
+        self.is_dragging_preview = False
+        self.drag_offset_x = 0
+        self.drag_offset_y = 0
 
         self.current_page = 0
         self.zoom_level = 1.0
@@ -62,7 +86,9 @@ class PDFEditWindow(QMainWindow):
 
         )
 
-        self.label.click_handler = self.handle_pdf_click
+        self.label.press_handler = self.handle_pdf_click
+        self.label.move_handler = self.handle_pdf_move
+        self.label.release_handler = self.handle_pdf_release
         self.label.setStyleSheet("font-size: 16px;")
         self.label.setMargin(30)
 
@@ -128,6 +154,9 @@ class PDFEditWindow(QMainWindow):
         elif content_type == "Image":
             self.add_image()
 
+        elif content_type == "QR Code":
+            self.add_qr_code()
+
         else:
             print(f"{content_type} selected")
 
@@ -182,6 +211,43 @@ class PDFEditWindow(QMainWindow):
         self.pending_content = content
 
         print("Click on the PDF to place the content.")
+
+    def add_qr_code(self):
+
+        if self.document is None:
+            return
+
+        qr_text, ok = QInputDialog.getText(
+            self,
+            "Add QR Code",
+            "Enter URL or text:"
+        )
+
+        if not ok or not qr_text.strip():
+            return
+
+        qr_path = generate_qr_code(qr_text.strip())
+
+        self.pending_content = {
+            "type": "Image",
+            "image_path": qr_path,
+            "size": "Small",
+        }
+
+        print("Click on the PDF to place the QR code.")
+
+    def handle_pdf_release(self, x, y):
+        print(f"Mouse released at X={x}, Y={y}")
+        self.apply_preview_content()
+
+    def handle_pdf_move(self, x, y):
+
+        if self.preview_content is None:
+            return
+
+        self.preview_content["x"] = x
+        self.preview_content["y"] = y
+        self.render_page()
 
     def previous_page(self):
         if self.document is None:
@@ -265,44 +331,61 @@ class PDFEditWindow(QMainWindow):
         if self.pending_content is None:
             return
 
+        self.preview_content = {
+            "content": self.pending_content,
+            "x": x,
+            "y": y,
+        }
+
+        self.pending_content = None
+
+        print(f"Preview content placed at X={x}, Y={y}")
+
+        return
+
+    def apply_preview_content(self):
+        if self.preview_content is None:
+            return
+
+        content = self.preview_content["content"]
+        x = self.preview_content["x"]
+        y = self.preview_content["y"]
+        start_time = time.time()
+
         page = self.document.load_page(self.current_page)
 
-        if self.pending_content["type"] in ["Text", "Date"]:
+        if content["type"] in ["Text", "Date"]:
             page.insert_text(
                 (x, y),
-                self.pending_content["text"],
-                fontname=self.pending_content["font"],
-                fontsize=self.pending_content["size"],
-                color=self.pending_content["color"],
+                content["text"],
+                fontname=content["font"],
+                fontsize=content["size"],
+                color=content["color"],
             )
 
-        elif self.pending_content["type"] == "Signature":
-
+        elif content["type"] == "Signature":
             debug_print(
-                f"Using signature fontfile: {self.pending_content['fontfile']}"
+                f"Using signature fontfile: {content['fontfile']}"
             )
 
             page.insert_text(
                 (x, y),
-                self.pending_content["text"],
+                content["text"],
                 fontname="signaturefont",
-                fontfile=self.pending_content["fontfile"],
-                fontsize=self.pending_content["size"],
-                color=self.pending_content["color"],
+                fontfile=content["fontfile"],
+                fontsize=content["size"],
+                color=content["color"],
             )
-        
-        elif self.pending_content["type"] == "Image":
-            start_time = time.time()
-            
-            image_path = self.pending_content["image_path"]
-            image_size = self.pending_content["size"]
+
+        elif content["type"] == "Image":
+            image_path = content["image_path"]
+            image_size = content["size"]
 
             reader = QImageReader(image_path)
             reader.setAutoTransform(True)
             image = reader.read()
 
             print(f"Image read: {time.time() - start_time:.2f}s")
-
             debug_print(f"Image loaded: isNull={image.isNull()}")
 
             if image.isNull():
@@ -314,16 +397,12 @@ class PDFEditWindow(QMainWindow):
 
             if image_size == "Small":
                 width = 75
-
             elif image_size == "Medium":
                 width = 150
-
             elif image_size == "Large":
                 width = 250
-
             elif image_size == "X-Large":
                 width = 500
-
             else:
                 width = 150
 
@@ -354,12 +433,9 @@ class PDFEditWindow(QMainWindow):
 
             print(f"Image saved: {time.time() - start_time:.2f}s")
 
-        
-
-        self.pending_content = None
+        self.preview_content = None
         print(f"Before render: {time.time() - start_time:.2f}s")
         self.render_page()
-
         print(f"Total time: {time.time() - start_time:.2f}s")
 
     def render_page(self):
@@ -379,7 +455,44 @@ class PDFEditWindow(QMainWindow):
             QImage.Format.Format_RGB888,
         )
 
+        if self.preview_content is not None:
+            content = self.preview_content["content"]
+            x = self.preview_content["x"]
+            y = self.preview_content["y"]
 
+            painter = QPainter(image)
+
+            if content["type"] == "Image":
+                preview_image = QImage(content["image_path"])
+
+                if not preview_image.isNull():
+                    image_size = content["size"]
+
+                    if image_size == "Small":
+                        width = 75
+
+                    elif image_size == "Medium":
+                        width = 150
+
+                    elif image_size == "Large":
+                        width = 250
+
+                    elif image_size == "X-Large":
+                        width = 500
+
+                    else:
+
+                        width = 150
+
+                    aspect_ratio = preview_image.height() / preview_image.width()
+                    height = int(width * aspect_ratio)
+                    painter.drawImage(
+                        x,
+                        y,
+                        preview_image.scaled(width, height)
+                    )
+
+            painter.end()
 
         self.label.setPixmap(QPixmap.fromImage(image))
         self.label.adjustSize()

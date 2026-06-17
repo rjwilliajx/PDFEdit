@@ -1,2 +1,4 @@
 PyMuPDF
+Pillow
 PySide6
+qrcode[pil]

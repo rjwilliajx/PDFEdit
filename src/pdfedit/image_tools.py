@@ -19,6 +19,7 @@ def create_image_content(parent):
     if not image_path:
         return None
 
+
     dialog = QDialog(parent)
     dialog.setWindowTitle("Add Image")
 

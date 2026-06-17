@@ -12,7 +12,7 @@
 - [x] Print PDF
 - [x] Close PDF
 
-## Additor v0.2 (In Progress)
+## Additor v0.2 (Completed)
 
 ### Add Text
 
@@ -24,13 +24,6 @@
 - [x] Color selection
 - [x] Mouse placement
 - [x] OK / Cancel buttons
-
-### Edit Existing Text
-
-- [ ] Research PDF text editing
-- [ ] Select text
-- [ ] Modify text
-- [ ] Save changes
 
 ### Insert Images
 
@@ -74,6 +67,15 @@
 - [x] Mouse placement
 - [x] OK / Cancel buttons
 
+### QR Code
+
+- [x] Add QR Code menu item
+- [x] QR Code input dialog
+- [x] Generate QR Code image
+- [x] Temporary QR image creation
+- [x] QR Code placement
+- [x] Drag-to-place positioning
+
 ## Saver v0.3 (Planned)
 ### Save Modified PDF
 
@@ -83,10 +85,10 @@
 ## Editor v0.4 (Planned)
 ### Edit Existing Text
 
-- [ ] Research PDF text editing
-- [ ] Select text
-- [ ] Modify text
-- [ ] Save changes
+- [ ] Edit existing text
+- [ ] Move existing content
+- [ ] Resize existing content
+- [ ] Delete existing content
 
 Wrapper v1.0
 □ Packaging

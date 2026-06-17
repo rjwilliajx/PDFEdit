@@ -127,11 +127,11 @@ To be determined.
 
 Active Development
 
-PDFEdit has completed the Viewer phase and is currently in the Additor phase.
+PDFEdit has completed the Viewer phase and the Additor phases.
 
 ### **Current Status**
 
-PDFEdit Viewer v0.1
+PDFEdit Viewer v0.1  (Complete)
 
 Implemented Features
 
@@ -146,7 +146,7 @@ Implemented Features
 * Close PDF
 * Reset Document
 
-PDFEdit Additor v0.2
+PDFEdit Additor v0.2  (Complete)
 
 Implemented Features
 
@@ -192,24 +192,29 @@ Images
     * Large
     * X-Large
 
-In Progress
-
+QR Code
 * QR Code Generation
 * QR Code Placement
 
+Placement
+* Click and Place
+* Drag and Place
+
 Planned Features
 
-Saver v1.0 (Planned)
+Saver v0.3 (Planned)
 
 * Save PDF
 * Save PDF As
 
-Editor v1.0 (Planned)
+Editor v0.4 (Planned)
 
 * Edit Existing Text
-* Edit Existing Content
+* Move Existing Content
+* Resize Existing Content
+* Delete Existing Content
 
-Wrapper v1.0 (Planned)
+Wrapper v0.5 (Planned)
 
 * Package Application
 * Create Installer
