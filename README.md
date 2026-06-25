@@ -6,8 +6,11 @@ Copyright © 2026 Rick Williams
 
 A free desktop PDF editor designed to provide simple PDF editing capabilities without requiring a subscription.
 
-PDFEdit is a simple, local-first PDF editor designed to make editing PDF documents as easy as editing a Word document.
+PDFEdit is a simple, local-first PDF editor designed to make common PDF editing tasks as straightforward as possible.
 
+### **Preserve the Original**
+
+PDFEdit intentionally protects the user's original PDF. Rather than overwriting the source document, edited documents are saved as a new PDF using **Save PDF As**. This approach reduces the risk of accidental data loss while preserving the original file as a permanent reference.
 Most PDF editors focus on advanced publishing features, cloud services, subscriptions, and enterprise workflows. PDFEdit focuses on the needs of everyday users who need to quickly modify an existing PDF without complexity, advertisements, or recurring fees.
 
 ## **Vision**
@@ -200,12 +203,11 @@ Placement
 * Click and Place
 * Drag and Place
 
-Planned Features
+Savitor v0.3 (Complete)
 
-Saver v0.3 (Planned)
-
-* Save PDF
 * Save PDF As
+
+Planned Features
 
 Editor v0.4 (Planned)
 
