@@ -11,13 +11,14 @@ from signature_tools import create_signature_content
 from image_tools import create_image_content
 from qr_tools import generate_qr_code
 from PIL import Image
-from PySide6.QtGui import QImage, QImageReader, QPainter, QPixmap, QColor
+from PySide6.QtGui import QFont, QImage, QImageReader, QPainter, QPixmap, QColor
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QScrollArea,
 )
 
@@ -72,6 +73,7 @@ class PDFEditWindow(QMainWindow):
         self.current_page = 0
         self.zoom_level = 1.0
         self.current_file_path = None
+        self.has_unsaved_changes = False
 
         self.setWindowTitle("PDFEdit")
         self.setMinimumSize(900, 700)
@@ -104,6 +106,12 @@ class PDFEditWindow(QMainWindow):
 
         open_action = file_menu.addAction("Open PDF...")
         open_action.triggered.connect(self.open_pdf)
+
+        save_action = file_menu.addAction("Save")
+        save_action.setEnabled(False)
+
+        save_as_action = file_menu.addAction("Save As...")
+        save_as_action.triggered.connect(self.save_pdf_as)
 
         print_action = file_menu.addAction("Print PDF...")
         print_action.triggered.connect(self.print_pdf)
@@ -279,6 +287,8 @@ class PDFEditWindow(QMainWindow):
     def close_pdf(self):
         self.document = None
         self.current_page = 0
+        self.current_file_path = None
+        self.has_unsaved_changes = False
         self.label.clear()
         self.label.setMargin(30)
         self.label.setText("PDFEdit")
@@ -298,6 +308,66 @@ class PDFEditWindow(QMainWindow):
         self.label.setMargin(0)
         self.current_file_path = file_path
         self.current_page = 0
+        self.has_unsaved_changes = False
+        self.render_page()
+
+    def save_pdf_as(self):
+        if self.document is None:
+            QMessageBox.information(
+                self,
+                "Save As",
+                "Open a PDF before saving.",
+            )
+            return
+
+        default_path = ""
+
+        if self.current_file_path:
+            original = Path(self.current_file_path)
+            default_path = str(
+                original.with_name(f"{original.stem}_edited{original.suffix}")
+            )
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save PDF As",
+            default_path,
+            "PDF Files (*.pdf)"
+        )
+
+        if not file_path:
+            return
+
+        target_path = Path(file_path)
+        if target_path.suffix.lower() != ".pdf":
+            target_path = target_path.with_name(target_path.name + ".pdf")
+
+        if self.current_file_path and target_path.resolve() == Path(self.current_file_path).resolve():
+            QMessageBox.warning(
+                self,
+                "Choose a New File Name",
+                "PDFEdit does not overwrite the original PDF. Please choose a different file name.",
+            )
+
+            return
+
+        try:
+            self.document.save(
+                str(target_path),
+                garbage=3,
+                deflate=True,
+                encryption=fitz.PDF_ENCRYPT_KEEP,
+            )
+        except Exception as error:
+            QMessageBox.critical(
+                self,
+                "Save As Failed",
+                f"PDFEdit could not save the PDF:\n\n{error}",
+            )
+            return
+
+        self.current_file_path = str(target_path)
+        self.has_unsaved_changes = False
         self.render_page()
 
     def print_pdf(self):
@@ -319,6 +389,7 @@ class PDFEditWindow(QMainWindow):
                 return
             self.document = fitz.open(self.current_file_path)
             self.current_page = 0
+            self.has_unsaved_changes = False
             self.render_page()
     
     def handle_pdf_click(self, x, y):
@@ -434,6 +505,7 @@ class PDFEditWindow(QMainWindow):
             print(f"Image saved: {time.time() - start_time:.2f}s")
 
         self.preview_content = None
+        self.has_unsaved_changes = True
         print(f"Before render: {time.time() - start_time:.2f}s")
         self.render_page()
         print(f"Total time: {time.time() - start_time:.2f}s")
@@ -461,6 +533,26 @@ class PDFEditWindow(QMainWindow):
             y = self.preview_content["y"]
 
             painter = QPainter(image)
+
+            if content["type"] in ["Text", "Date"]:
+                red, green, blue = content["color"]
+                painter.setFont(QFont(content["font"], content["size"]))
+                painter.setPen(QColor(
+                    int(red * 255),
+                    int(green * 255),
+                    int(blue * 255),
+                ))
+                painter.drawText(x, y, content["text"])
+
+            if content["type"] == "Signature":
+                red, green, blue = content["color"]
+                painter.setFont(QFont(content.get("font", "Zapfino"), content["size"]))
+                painter.setPen(QColor(
+                    int(red * 255),
+                    int(green * 255),
+                    int(blue * 255),
+                ))
+                painter.drawText(x, y, content["text"])
 
             if content["type"] == "Image":
                 preview_image = QImage(content["image_path"])
