@@ -441,22 +441,51 @@ class PDFEditWindow(QMainWindow):
         # print what was clicked
         page = self.document.load_page(self.current_page)
         blocks = page.get_text("blocks")
+        text_dict = page.get_text("dict")
 
         print(f"Found {len(blocks)} text blocks on page.")
         for block in blocks:
             x0, y0, x1, y1, text = block[:5]
 
             if x0 <= x <= x1 and y0 <= y <= y1:
+                font_name = None
+                font_size = None
+                font_color = None
+                selected_rect = fitz.Rect(x0, y0, x1, y1)
+
+                for text_block in text_dict["blocks"]:
+                    if text_block.get("type") != 0:
+                        continue
+
+                    for line in text_block["lines"]:
+                        for span in line["spans"]:
+                            span_rect = fitz.Rect(span["bbox"])
+
+                            if span_rect.intersects(selected_rect):
+                                font_name = span["font"]
+                                font_size = span["size"]
+                                font_color = span["color"]
+                                break
+
+                        if font_name is not None:
+                            break
+
+                    if font_name is not None:
+                        break
+
                 self.selected_text_block = {
                     "bounds": (x0, y0, x1, y1),
                     "text": text.strip(),
-                    "font_name": None,
-                    "font_size": None,
-                    "color": None,
+                    "font_name": font_name,
+                    "font_size": font_size,
+                    "color": font_color,
                 }
+
+
                 print("Clicked text block:")
                 print(f"Bounds: X={x0:.2f} to {x1:.2f}, Y={y0:.2f} to {y1:.2f}")
                 print(f"Text: {text.strip()}")
+                print(f"Font: {font_name}, Size: {font_size}, Color: {font_color}")
                 self.render_page()
                 return
         self.selected_text_block = None
@@ -491,6 +520,17 @@ class PDFEditWindow(QMainWindow):
         print(self.selected_text_block["text"])
         self.replace_selected_text()
 
+    def resolve_insert_font(self, detected_font):
+        if detected_font is None:
+            return "helv"
+
+        font_name = str(detected_font).lower()
+        if "courier" in font_name or "consolas" in font_name or "mono" in font_name:
+            return "cour"
+        if "times" in font_name or "georgia" in font_name or "garamond" in font_name or "cambria" in font_name:
+            return "tiro"
+        return "helv"
+
     def replace_selected_text(self):
 
         if self.selected_text_block is None:
@@ -498,19 +538,29 @@ class PDFEditWindow(QMainWindow):
         x0, y0, x1, y1 = self.selected_text_block["bounds"]
         new_text = self.selected_text_block["text"]
         rect = fitz.Rect(x0, y0, x1, y1)
-
+        detected_font = self.selected_text_block["font_name"]
+        insert_font_name = self.resolve_insert_font(detected_font)
         chosen_font_size = None
-
+        starting_size = int(self.selected_text_block["font_size"])
         test_document = fitz.open("pdf", self.document.write())
         test_page = test_document.load_page(self.current_page)
+        color = self.selected_text_block["color"]
+        if color is None:
+            rgb = (0, 0, 0)
+        else:
+            rgb = (
+                ((color >> 16) & 255) / 255,
+                ((color >> 8) & 255) / 255,
+                (color & 255) / 255,
+            )
 
-        for font_size in range(10, 5, -1):
+        for font_size in range(starting_size, 5, -1):
             test_result = test_page.insert_textbox(
                 rect,
                 new_text,
                 fontsize=font_size,
-                fontname="helv",
-                color=(0, 0, 0),
+                fontname=insert_font_name,
+                color=rgb,
             )
 
             if test_result >= 0:
@@ -528,12 +578,14 @@ class PDFEditWindow(QMainWindow):
         page = self.document.load_page(self.current_page)
         page.add_redact_annot(rect, fill=(1, 1, 1))
         page.apply_redactions()
+
+
         result = page.insert_textbox(
             rect,
             new_text,
             fontsize=chosen_font_size,
-            fontname="helv",
-            color=(0, 0, 0),
+            fontname=insert_font_name,
+            color=rgb,
         )
 
         print(f"Text inserted at font size {chosen_font_size}.")
