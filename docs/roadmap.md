@@ -76,11 +76,10 @@
 - [x] QR Code placement
 - [x] Drag-to-place positioning
 
-## Saver v0.3 (Planned)
+## Saver v0.3 (Completed)
 ### Save Modified PDF
 
-- [ ] Save
-- [ ] Save As
+- [x] Save As
 
 ## Editor v0.4 (Planned)
 ### Edit Existing Text
