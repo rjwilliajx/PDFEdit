@@ -66,6 +66,7 @@ class PDFEditWindow(QMainWindow):
         self.pending_color = None
         self.pending_content = None
         self.preview_content = None
+        self.selected_text_block = None
         self.is_dragging_preview = False
         self.drag_offset_x = 0
         self.drag_offset_y = 0
@@ -120,6 +121,9 @@ class PDFEditWindow(QMainWindow):
 
         add_content_action = edit_menu.addAction("Add Content")
         add_content_action.triggered.connect(self.add_content)
+
+        edit_text_action = edit_menu.addAction("View/Edit Selected Text")
+        edit_text_action.triggered.connect(self.view_edit_selected_text)
 
         view_menu = self.menuBar().addMenu("View")
 
@@ -245,6 +249,12 @@ class PDFEditWindow(QMainWindow):
         print("Click on the PDF to place the QR code.")
 
     def handle_pdf_release(self, x, y):
+        if self.document is None:
+            return
+
+        if self.preview_content is None:
+            return
+
         print(f"Mouse released at X={x}, Y={y}")
         self.apply_preview_content()
 
@@ -263,6 +273,7 @@ class PDFEditWindow(QMainWindow):
 
         if self.current_page > 0:
            self.current_page -= 1
+           self.selected_text_block = None
            self.render_page()
 
     def zoom_in(self):
@@ -282,6 +293,7 @@ class PDFEditWindow(QMainWindow):
 
         if self.current_page < self.document.page_count - 1:
             self.current_page += 1
+            self.selected_text_block = None
             self.render_page()
 
     def close_pdf(self):
@@ -289,6 +301,7 @@ class PDFEditWindow(QMainWindow):
         self.current_page = 0
         self.current_file_path = None
         self.has_unsaved_changes = False
+        self.selected_text_block = None
         self.label.clear()
         self.label.setMargin(30)
         self.label.setText("PDFEdit")
@@ -309,6 +322,7 @@ class PDFEditWindow(QMainWindow):
         self.current_file_path = file_path
         self.current_page = 0
         self.has_unsaved_changes = False
+        self.selected_text_block = None
         self.render_page()
 
     def save_pdf_as(self):
@@ -391,7 +405,7 @@ class PDFEditWindow(QMainWindow):
             self.current_page = 0
             self.has_unsaved_changes = False
             self.render_page()
-    
+
     def handle_pdf_click(self, x, y):
         self.last_click_x = x
         self.last_click_y = y
@@ -400,6 +414,8 @@ class PDFEditWindow(QMainWindow):
         debug_print(f"Pending content at click: {self.pending_content}")
 
         if self.pending_content is None:
+            self.inspect_pdf_click(x, y)
+
             return
 
         self.preview_content = {
@@ -412,7 +428,120 @@ class PDFEditWindow(QMainWindow):
 
         print(f"Preview content placed at X={x}, Y={y}")
 
+    def inspect_pdf_click(self, x, y):
+
+        if self.document is None:
+            self.selected_text_block = None
+            print("No PDF is open.")
+            return
+
+        # load current page
+        # convert click coordinates if needed
+        # check text blocks/images
+        # print what was clicked
+        page = self.document.load_page(self.current_page)
+        blocks = page.get_text("blocks")
+
+        print(f"Found {len(blocks)} text blocks on page.")
+        for block in blocks:
+            x0, y0, x1, y1, text = block[:5]
+
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                self.selected_text_block = {
+                    "bounds": (x0, y0, x1, y1),
+                    "text": text.strip(),
+                    "font_name": None,
+                    "font_size": None,
+                    "color": None,
+                }
+                print("Clicked text block:")
+                print(f"Bounds: X={x0:.2f} to {x1:.2f}, Y={y0:.2f} to {y1:.2f}")
+                print(f"Text: {text.strip()}")
+                self.render_page()
+                return
+        self.selected_text_block = None
+        print("No editable text found at that location.")
+        self.render_page()
         return
+
+    def view_edit_selected_text(self):
+
+        if self.selected_text_block is None:
+            QMessageBox.information(
+                self,
+                "No Text Selected",
+                "Please select a text block first."
+            )
+            return
+
+        selected_block = self.selected_text_block
+        edited_text, ok = QInputDialog.getMultiLineText(
+            self,
+            "View/Edit Selected Text",
+            "Selected Text:",
+            selected_block["text"],
+        )
+
+        if not ok:
+            return
+
+        selected_block["text"] = edited_text
+        self.selected_text_block = selected_block
+        print("Updated selected text:")
+        print(self.selected_text_block["text"])
+        self.replace_selected_text()
+
+    def replace_selected_text(self):
+
+        if self.selected_text_block is None:
+            return
+        x0, y0, x1, y1 = self.selected_text_block["bounds"]
+        new_text = self.selected_text_block["text"]
+        rect = fitz.Rect(x0, y0, x1, y1)
+
+        chosen_font_size = None
+
+        test_document = fitz.open("pdf", self.document.write())
+        test_page = test_document.load_page(self.current_page)
+
+        for font_size in range(10, 5, -1):
+            test_result = test_page.insert_textbox(
+                rect,
+                new_text,
+                fontsize=font_size,
+                fontname="helv",
+                color=(0, 0, 0),
+            )
+
+            if test_result >= 0:
+                chosen_font_size = font_size
+
+                break
+
+        test_document.close()
+
+        if chosen_font_size is None:
+            print("Edited text is too large for the selected area.")
+
+            return
+
+        page = self.document.load_page(self.current_page)
+        page.add_redact_annot(rect, fill=(1, 1, 1))
+        page.apply_redactions()
+        result = page.insert_textbox(
+            rect,
+            new_text,
+            fontsize=chosen_font_size,
+            fontname="helv",
+            color=(0, 0, 0),
+        )
+
+        print(f"Text inserted at font size {chosen_font_size}.")
+        print(f"Insert textbox result: {result}")
+
+        self.has_unsaved_changes = True
+        self.selected_text_block = None
+        self.render_page()
 
     def apply_preview_content(self):
         if self.preview_content is None:
@@ -526,6 +655,19 @@ class PDFEditWindow(QMainWindow):
             pix.stride,
             QImage.Format.Format_RGB888,
         )
+
+        if self.selected_text_block is not None:
+            x0, y0, x1, y1 = self.selected_text_block["bounds"]
+
+            painter = QPainter(image)
+            painter.setPen(QColor(0, 120, 215))
+            painter.drawRect(
+                int(x0 * self.zoom_level),
+                int(y0 * self.zoom_level),
+                int((x1 - x0) * self.zoom_level),
+                int((y1 - y0) * self.zoom_level),
+            )
+            painter.end()
 
         if self.preview_content is not None:
             content = self.preview_content["content"]
