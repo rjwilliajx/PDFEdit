@@ -82,12 +82,41 @@
 - [x] Save As
 
 ## Editor v0.4 (Planned)
-### Edit Existing Text
+## Edit Existing Text
 
-- [ ] Edit existing text
-- [ ] Move existing content
-- [ ] Resize existing content
-- [ ] Delete existing content
+- [x] Select text block
+- [x] View/Edit selected text
+- [x] Replace text within selected block
+- [x] Add text within selected block
+- [x] Delete text within selected block
+- [x] Preserve original font size
+- [x] Preserve original text color
+- [x] Preserve original line height
+- [x] Expand text block when required
+- [x] Base-14 font fallback
+- [x] Normalize replacement text
+
+### Delete Content Block
+
+- [x] Delete entire selected content block
+- [ ] Confirmation dialog before deletion
+
+### Text Formatting
+
+- [ ] Improve typography fidelity
+- [ ] Preserve original line breaks
+- [ ] Improve unavailable font handling
+- [ ] Preserve original font where supported
+
+### Rich Text Editing
+
+- [ ] Bold
+- [ ] Italic
+- [ ] Underline
+- [ ] Font selection
+- [ ] Font size changes
+- [ ] Font color changes
+- [ ] Mixed formatting within a text block
 
 Wrapper v1.0
 □ Packaging
