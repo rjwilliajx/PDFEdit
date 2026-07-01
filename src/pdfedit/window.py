@@ -443,6 +443,7 @@ class PDFEditWindow(QMainWindow):
         blocks = page.get_text("blocks")
         text_dict = page.get_text("dict")
 
+
         print(f"Found {len(blocks)} text blocks on page.")
         for block in blocks:
             x0, y0, x1, y1, text = block[:5]
@@ -451,43 +452,52 @@ class PDFEditWindow(QMainWindow):
                 font_name = None
                 font_size = None
                 font_color = None
+                line_y_positions = []
                 selected_rect = fitz.Rect(x0, y0, x1, y1)
 
                 for text_block in text_dict["blocks"]:
+
                     if text_block.get("type") != 0:
                         continue
 
                     for line in text_block["lines"]:
+                        line_rect = fitz.Rect(line["bbox"])
+
+                        if line_rect.intersects(selected_rect):
+                            line_y_positions.append(round(line_rect.y0, 2))
+
                         for span in line["spans"]:
                             span_rect = fitz.Rect(span["bbox"])
 
-                            if span_rect.intersects(selected_rect):
+                            if span_rect.intersects(selected_rect) and font_name is None:
                                 font_name = span["font"]
                                 font_size = span["size"]
                                 font_color = span["color"]
-                                break
 
-                        if font_name is not None:
-                            break
+                detected_line_height = None
 
-                    if font_name is not None:
-                        break
+                if len(line_y_positions) > 1:
+                    line_y_positions = sorted(set(line_y_positions))
 
+                    detected_line_height = line_y_positions[1] - line_y_positions[0]
                 self.selected_text_block = {
                     "bounds": (x0, y0, x1, y1),
                     "text": text.strip(),
                     "font_name": font_name,
                     "font_size": font_size,
                     "color": font_color,
+                    "line_height": detected_line_height,
                 }
-
 
                 print("Clicked text block:")
                 print(f"Bounds: X={x0:.2f} to {x1:.2f}, Y={y0:.2f} to {y1:.2f}")
                 print(f"Text: {text.strip()}")
                 print(f"Font: {font_name}, Size: {font_size}, Color: {font_color}")
+                print(f"Line height: {detected_line_height}")
+
                 self.render_page()
                 return
+
         self.selected_text_block = None
         print("No editable text found at that location.")
         self.render_page()
@@ -537,13 +547,21 @@ class PDFEditWindow(QMainWindow):
             return
         x0, y0, x1, y1 = self.selected_text_block["bounds"]
         new_text = self.selected_text_block["text"]
-        rect = fitz.Rect(x0, y0, x1, y1)
+
+        new_text = " ".join(new_text.split())
+        original_rect = fitz.Rect(x0, y0, x1, y1)
         detected_font = self.selected_text_block["font_name"]
         insert_font_name = self.resolve_insert_font(detected_font)
-        chosen_font_size = None
-        starting_size = int(self.selected_text_block["font_size"])
-        test_document = fitz.open("pdf", self.document.write())
-        test_page = test_document.load_page(self.current_page)
+        original_font_size = self.selected_text_block["font_size"]
+
+        if original_font_size is None:
+            original_font_size = 10
+
+        line_height = self.selected_text_block["line_height"]
+        if line_height is None:
+            line_height_factor = 1.2
+        else:
+            line_height_factor = line_height / original_font_size
         color = self.selected_text_block["color"]
         if color is None:
             rgb = (0, 0, 0)
@@ -554,41 +572,56 @@ class PDFEditWindow(QMainWindow):
                 (color & 255) / 255,
             )
 
-        for font_size in range(starting_size, 5, -1):
+        chosen_rect = None
+        chosen_result = None
+        max_extra_height = 80
+        expansion_step = 1
+
+        for extra_height in range(0, max_extra_height + expansion_step, expansion_step):
+            test_rect = fitz.Rect(x0, y0, x1, y1 + extra_height)
+            test_document = fitz.open("pdf", self.document.write())
+            test_page = test_document.load_page(self.current_page)
+
             test_result = test_page.insert_textbox(
-                rect,
+                test_rect,
                 new_text,
-                fontsize=font_size,
+                fontsize=original_font_size,
+                lineheight=line_height_factor,
                 fontname=insert_font_name,
                 color=rgb,
             )
 
-            if test_result >= 0:
-                chosen_font_size = font_size
+            test_document.close()
 
+            if test_result >= 0:
+                chosen_rect = test_rect
+                chosen_result = test_result
                 break
 
-        test_document.close()
 
-        if chosen_font_size is None:
-            print("Edited text is too large for the selected area.")
+        if chosen_rect is None:
+            print("Edited text is too large for the selected area. The text block could not be expanded enough to fit.")
 
             return
 
         page = self.document.load_page(self.current_page)
-        page.add_redact_annot(rect, fill=(1, 1, 1))
+
+
+        page.add_redact_annot(original_rect, fill=(1, 1, 1))
         page.apply_redactions()
 
 
         result = page.insert_textbox(
-            rect,
+            chosen_rect,
             new_text,
-            fontsize=chosen_font_size,
+            fontsize=original_font_size,
+            lineheight=line_height_factor,
             fontname=insert_font_name,
             color=rgb,
         )
 
-        print(f"Text inserted at font size {chosen_font_size}.")
+        print(f"Text inserted at original font size {original_font_size}.")
+        print(f"Text block expanded by {chosen_rect.y1 - original_rect.y1:.2f} points.")
         print(f"Insert textbox result: {result}")
 
         self.has_unsaved_changes = True
