@@ -84,10 +84,15 @@
 ## Editor v0.4 (Planned)
 ### Edit Existing Text
 
-- [ ] Edit existing text
-- [ ] Move existing content
-- [ ] Resize existing content
-- [ ] Delete existing content
+- [X] Select existing text
+- [X] Highlight selected text
+- [X] View selected text
+- [X] Preserve font family
+- [X] Preserve font size
+- [X] Preserve font color
+- [X] Preserve line height
+- [X] Expand text block when needed
+- [ ] Delete selected text
 
 Wrapper v1.0
 □ Packaging
