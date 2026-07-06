@@ -38,7 +38,7 @@ def setup_edit_menu(window):
     edit_text_action.triggered.connect(window.view_edit_selected_text)
 
     delete_content_action = edit_menu.addAction("Delete Content Block")
-    delete_content_action.triggered.connect(window.delete_selected_text)
+    delete_content_action.triggered.connect(window.delete_content_block)
 
 
 def setup_view_menu(window):

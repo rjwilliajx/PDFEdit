@@ -105,8 +105,8 @@ def replace_selected_text(document, page_number, selected_text_block):
     return True
 
 
-# * Delete selected text by redacting its original text block.
-def delete_selected_text(document, page_number, selected_text_block):
+# * Delete the selected content block by redacting it from the PDF.
+def delete_content_block(document, page_number, selected_text_block):
     if selected_text_block is None:
         return False
 

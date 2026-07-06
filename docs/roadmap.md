@@ -14,7 +14,7 @@
 
 ## Additor v0.2 (Completed)
 
-### Add Text
+### Add Text (Completed)
 
 - [x] Add Text menu item
 - [x] Text input dialog
@@ -25,7 +25,7 @@
 - [x] Mouse placement
 - [x] OK / Cancel buttons
 
-### Insert Images
+### Insert Images (Completed)
 
 - [x] Add Image menu item
 - [x] Image file selection
@@ -42,7 +42,7 @@
 - [x] Mouse placement
 - [x] Performance optimization
 
-### Signatures
+### Signatures (Completed)
 
 - [x] Add Signature menu item
 - [x] Signature input dialog
@@ -56,7 +56,7 @@
 - [x] Mouse placement
 - [x] OK / Cancel buttons
 
-### Date
+### Date (Completed)
 
 - [x] Add Date menu item
 - [x] Current date generation
@@ -67,7 +67,7 @@
 - [x] Mouse placement
 - [x] OK / Cancel buttons
 
-### QR Code
+### QR Code (Completed)
 
 - [x] Add QR Code menu item
 - [x] QR Code input dialog
@@ -77,12 +77,12 @@
 - [x] Drag-to-place positioning
 
 ## Saver v0.3 (Completed)
-### Save Modified PDF
+### Save Modified PDF (Completed)
 
 - [x] Save As
 
 ## Editor v0.4 (Planned)
-## Edit Existing Text
+## Edit Existing Text (Completed)
 
 - [x] Select text block
 - [x] View/Edit selected text
@@ -96,10 +96,10 @@
 - [x] Base-14 font fallback
 - [x] Normalize replacement text
 
-### Delete Content Block
+### Delete Content Block (Completed)
 
 - [x] Delete entire selected content block
-- [ ] Confirmation dialog before deletion
+- [x] Confirmation dialog before deletion
 
 ### Text Formatting
 
@@ -117,6 +117,21 @@
 - [ ] Font size changes
 - [ ] Font color changes
 - [ ] Mixed formatting within a text block
+
+## Image Editor v0.5 (Planned)
+### Edit Existing Image
+
+- [ ] Select image
+- [ ] Highlight selected image
+- [ ] View image properties
+- [ ] Replace selected image
+- [ ] Resize selected image
+- [ ] Reposition selected image
+
+### Delete Content Block
+
+- [ ] Delete selected image
+- [ ] Confirmation dialog before deletion
 
 Wrapper v1.0
 □ Packaging

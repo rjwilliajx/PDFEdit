@@ -18,7 +18,7 @@ from file_tools import (
 )
 from preview_tools import apply_preview_content as apply_preview
 from selection_tools import build_selected_text_block
-from text_edit_tools import delete_selected_text as delete_text_block
+from text_edit_tools import delete_content_block
 from text_edit_tools import replace_selected_text as replace_text_block
 from viewer_tools import (
     go_to_next_page,
@@ -369,7 +369,7 @@ class PDFEditWindow(QMainWindow):
         self.selected_text_block = None
         self.render_page()
 
-    def delete_selected_text(self):
+    def delete_content_block(self):
         if self.selected_text_block is None:
             QMessageBox.information(
                 self,
@@ -378,7 +378,25 @@ class PDFEditWindow(QMainWindow):
             )
             return
 
-        deleted = delete_text_block(
+        confirmation_box = QMessageBox(self)
+        confirmation_box.setWindowTitle("Delete Content Block")
+        confirmation_box.setIcon(QMessageBox.Icon.Warning)
+        confirmation_box.setText("Delete Content Block")
+        confirmation_box.setInformativeText(
+            "This will permanently delete the selected content block from the PDF.\n\n"
+            "This action cannot be undone.\n\n"
+            "Do you want to continue?"
+        )
+        confirmation_box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        confirmation_box.setDefaultButton(QMessageBox.StandardButton.No)
+        confirmation = confirmation_box.exec()
+        
+        if confirmation != QMessageBox.StandardButton.Yes:
+            return
+
+        deleted = delete_content_block(
             self.document,
             self.current_page,
             self.selected_text_block,
