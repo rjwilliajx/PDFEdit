@@ -15,6 +15,7 @@ def go_to_previous_page(window):
 
     if window.current_page > 0:
         window.current_page -= 1
+        window.selected_content = None
         window.selected_text_block = None
         window.render_page()
         return True
@@ -30,6 +31,7 @@ def go_to_next_page(window):
 
     if window.current_page < window.document.page_count - 1:
         window.current_page += 1
+        window.selected_content = None
         window.selected_text_block = None
         window.render_page()
         return True
@@ -62,12 +64,11 @@ def zoom_page_out(window):
 
 
 # * Draw the selected text-block outline on the rendered page image.
-def draw_selected_text_block(image, selected_text_block, zoom_level):
-
-    if selected_text_block is None:
+def draw_selected_content(image, selected_content, zoom_level):
+    if selected_content is None:
         return
 
-    x0, y0, x1, y1 = selected_text_block["bounds"]
+    x0, y0, x1, y1 = selected_content["bounds"]
 
     painter = QPainter(image)
     painter.setPen(QColor(0, 120, 215))
@@ -103,9 +104,9 @@ def render_pdf_page(window):
         QImage.Format.Format_RGB888,
     )
 
-    draw_selected_text_block(
+    draw_selected_content(
         image,
-        window.selected_text_block,
+        window.selected_content,
         window.zoom_level,
     )
 
@@ -117,8 +118,8 @@ def render_pdf_page(window):
     window.label.setPixmap(QPixmap.fromImage(image))
     window.label.adjustSize()
 
-    window.setWindowTitle(
-        f"PDFEdit - Page {window.current_page + 1} of {window.document.page_count}"
+    window.page_status_label.setText(
+        f"Page {window.current_page + 1} of {window.document.page_count}"
     )
 
     return True

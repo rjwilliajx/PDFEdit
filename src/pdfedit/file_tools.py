@@ -126,6 +126,7 @@ def close_pdf_file(window):
     window.label.clear()
     window.label.setMargin(30)
     window.label.setText("PDFEdit")
+    window.page_status_label.setText("Page 0 of 0")
 
     return True
 

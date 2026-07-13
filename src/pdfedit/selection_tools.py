@@ -1,9 +1,9 @@
-# * PDF text-selection helper functions.
+# * PDF content-selection helper functions.
 
 import fitz
 
 
-# * Find the text block located at the clicked PDF coordinates.
+# * PDF text-selection helper functions.
 def find_text_block_at_click(page, x, y):
     blocks = page.get_text("blocks")
 
@@ -12,9 +12,28 @@ def find_text_block_at_click(page, x, y):
 
         if x0 <= x <= x1 and y0 <= y <= y1:
             return {
+                "type": "Text",
                 "bounds": (x0, y0, x1, y1),
                 "text": text.strip(),
             }
+
+# * Find the image block located at the clicked PDF coordinates.
+def find_image_block_at_click(page, x, y):
+    images = page.get_images(full=True)
+
+    for image in images:
+        xref = image[0]
+        image_rects = page.get_image_rects(xref)
+
+        for image_rect in image_rects:
+            if image_rect.x0 <= x <= image_rect.x1 and image_rect.y0 <= y <= image_rect.y1:
+                return {
+                    "type": "Image",
+                    "xref": xref,
+                    "bounds": (image_rect.x0, image_rect.y0, image_rect.x1, image_rect.y1),
+                    "width": image_rect.width,
+                    "height": image_rect.height,
+                }
 
     return None
 
@@ -77,3 +96,15 @@ def build_selected_text_block(page, x, y):
         selected_block.update(metadata)
 
     return selected_block
+
+
+# * Build the selected-image object used by the editor workflow.
+def build_selected_image_block(page, x, y):
+    return find_image_block_at_click(page, x, y)
+
+# * Build the selected-content object used by the editor workflow.
+def build_selected_content(page, x, y):
+    selected_image = build_selected_image_block(page, x, y)
+    if selected_image is not None:
+        return selected_image
+    return build_selected_text_block(page, x, y)

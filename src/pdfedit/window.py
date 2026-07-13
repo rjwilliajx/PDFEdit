@@ -1,5 +1,5 @@
 import fitz
-
+from menu_tools import setup_menus
 from debug_tools import debug_print
 from content_tools import show_add_content_menu
 from text_tools import create_text_content
@@ -7,17 +7,25 @@ from date_tools import create_date_content
 from signature_tools import create_signature_content
 from image_tools import create_image_content
 from qr_tools import generate_qr_code
-
-from menu_tools import setup_menus
-from file_tools import (
-    close_pdf_file,
-    open_pdf_file,
-    print_pdf_file,
-    reset_pdf_file,
-    save_pdf_as_file,
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QToolBar,
+    QLabel,
+    QInputDialog,
+    QMainWindow,
+    QMessageBox,
+    QScrollArea,
 )
+from file_tools import (
+    open_pdf_file,
+    close_pdf_file,
+    save_pdf_as_file,
+    reset_pdf_file,
+    print_pdf_file,
+)
+
 from preview_tools import apply_preview_content as apply_preview
-from selection_tools import build_selected_text_block
+from selection_tools import build_selected_content
 from text_edit_tools import delete_content_block
 from text_edit_tools import replace_selected_text as replace_text_block
 from viewer_tools import (
@@ -28,13 +36,6 @@ from viewer_tools import (
     zoom_page_out,
 )
 
-from PySide6.QtWidgets import (
-    QLabel,
-    QInputDialog,
-    QMainWindow,
-    QMessageBox,
-    QScrollArea,
-)
 
 
 class ClickableLabel(QLabel):
@@ -85,6 +86,7 @@ class PDFEditWindow(QMainWindow):
         self.pending_color = None
         self.pending_content = None
         self.preview_content = None
+        self.selected_content = None
         self.selected_text_block = None
         self.is_dragging_preview = False
         self.drag_offset_x = 0
@@ -121,6 +123,21 @@ class PDFEditWindow(QMainWindow):
         self.setCentralWidget(self.scroll_area)
 
         setup_menus(self)
+
+        self.navigation_toolbar = QToolBar("Page Navigation")
+        self.navigation_toolbar.setMovable(False)
+        self.addToolBar(self.navigation_toolbar)
+
+        previous_page_action = QAction("Previous", self)
+        previous_page_action.triggered.connect(self.previous_page)
+        self.navigation_toolbar.addAction(previous_page_action)
+
+        self.page_status_label = QLabel("Page 0 of 0")
+        self.navigation_toolbar.addWidget(self.page_status_label)
+
+        next_page_action = QAction("Next", self)
+        next_page_action.triggered.connect(self.next_page)
+        self.navigation_toolbar.addAction(next_page_action)
 
     def add_content(self):
         content_type = show_add_content_menu(self)
@@ -294,33 +311,37 @@ class PDFEditWindow(QMainWindow):
 
     def inspect_pdf_click(self, x, y):
         if self.document is None:
+            self.selected_content = None
             self.selected_text_block = None
             print("No PDF is open.")
             return
-
         page = self.document.load_page(self.current_page)
-        blocks = page.get_text("blocks")
-        self.selected_text_block = build_selected_text_block(page, x, y)
-
-        print(f"Found {len(blocks)} text blocks on page.")
-
-        if self.selected_text_block is None:
-            print("No editable text found at that location.")
+        self.selected_content = build_selected_content(page, x, y)
+        if self.selected_content is None:
+            self.selected_text_block = None
+            print("No editable content found at that location.")
             self.render_page()
             return
-
-        x0, y0, x1, y1 = self.selected_text_block["bounds"]
-
-        print("Clicked text block:")
+        x0, y0, x1, y1 = self.selected_content["bounds"]
+        content_type = self.selected_content["type"]
+        print(f"Clicked {content_type.lower()} block:")
         print(f"Bounds: X={x0:.2f} to {x1:.2f}, Y={y0:.2f} to {y1:.2f}")
-        print(f"Text: {self.selected_text_block['text']}")
-        print(
-            f"Font: {self.selected_text_block['font_name']}, "
-            f"Size: {self.selected_text_block['font_size']}, "
-            f"Color: {self.selected_text_block['color']}"
-        )
-        print(f"Line height: {self.selected_text_block['line_height']}")
-
+        if content_type == "Text":
+            self.selected_text_block = self.selected_content
+            print(f"Text: {self.selected_text_block['text']}")
+            print(
+                f"Font: {self.selected_text_block['font_name']}, "
+                f"Size: {self.selected_text_block['font_size']}, "
+                f"Color: {self.selected_text_block['color']}"
+            )
+            print(f"Line height: {self.selected_text_block['line_height']}")
+        elif content_type == "Image":
+            self.selected_text_block = None
+            print(f"XREF: {self.selected_content['xref']}")
+            print(
+                f"Image size: {self.selected_content['width']:.2f} x "
+                f"{self.selected_content['height']:.2f} points"
+            )
         self.render_page()
 
     def view_edit_selected_text(self):
@@ -392,7 +413,7 @@ class PDFEditWindow(QMainWindow):
         )
         confirmation_box.setDefaultButton(QMessageBox.StandardButton.No)
         confirmation = confirmation_box.exec()
-        
+
         if confirmation != QMessageBox.StandardButton.Yes:
             return
 
