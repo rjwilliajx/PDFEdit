@@ -121,8 +121,9 @@
 ## Image Editor v0.5 (Planned)
 ### Edit Existing Image
 
-- [ ] Select image
-- [ ] Highlight selected image
+### Edit Existing Image
+- [x] Select image
+- [x] Highlight selected image
 - [ ] View image properties
 - [ ] Replace selected image
 - [ ] Resize selected image
