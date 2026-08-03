@@ -22,8 +22,13 @@
 - [x] Font selection
 - [x] Font size
 - [x] Color selection
-- [x] Mouse placement
+- [x] Cursor-following placement preview
 - [x] OK / Cancel buttons
+- [x] Single-click placement
+- [x] Repeat text entry
+- [x] Preserve previous font selection
+- [x] Preserve previous font size
+- [x] Preserve previous color selection
 
 ### Insert Images (Completed)
 
@@ -74,7 +79,7 @@
 - [x] Generate QR Code image
 - [x] Temporary QR image creation
 - [x] QR Code placement
-- [x] Drag-to-place positioning
+- [x] Mouse placement
 
 ## Saver v0.3 (Completed)
 ### Save Modified PDF (Completed)
@@ -118,22 +123,47 @@
 - [ ] Font color changes
 - [ ] Mixed formatting within a text block
 
-## Image Editor v0.5 (Planned)
-### Edit Existing Image
+## Image Editor v0.5 (In Progress)
 
-### Edit Existing Image
+### Image Selection (Completed)
+
 - [x] Select image
 - [x] Highlight selected image
+- [x] Display image information
+
+### Image Editing
+
 - [ ] View image properties
 - [ ] Replace selected image
 - [ ] Resize selected image
 - [ ] Reposition selected image
-
-### Delete Content Block
-
 - [ ] Delete selected image
-- [ ] Confirmation dialog before deletion
 
-Wrapper v1.0
-□ Packaging
-□ Distribution
+## Usability Improvements
+
+- [x] Unified preview placement engine for text
+- [x] Cursor-following preview
+- [x] Single-click placement
+- [x] Repeat text workflow
+- [ ] Migrate image placement to preview engine
+- [ ] Migrate date placement to preview engine
+- [ ] Migrate signature placement to preview engine
+- [ ] Migrate QR placement to preview engine
+- [ ] Keyboard nudging for precise placement
+
+
+
+## Next Development Priorities
+
+1. Replace selected image
+2. Delete selected image
+3. Reposition selected image
+4. Resize selected image
+5. Migrate image placement to the preview engine
+6. Migrate date, signature, and QR placement to the preview engine
+7. Rich text formatting
+
+## Wrapper v1.0 (Planned)
+
+- [ ] Packaging
+- [ ] Distribution

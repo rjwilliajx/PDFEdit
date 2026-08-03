@@ -42,6 +42,7 @@ class ClickableLabel(QLabel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setMouseTracking(True)
         self.press_handler = None
         self.move_handler = None
         self.release_handler = None
@@ -91,7 +92,11 @@ class PDFEditWindow(QMainWindow):
         self.is_dragging_preview = False
         self.drag_offset_x = 0
         self.drag_offset_y = 0
-
+        self.preview_moved = False
+        self.repeat_text_mode = False
+        self.last_text_font = "Helvetica"
+        self.last_text_size = 8
+        self.last_text_color = "Black"
         self.current_page = 0
         self.zoom_level = 1.0
         self.current_file_path = None
@@ -166,21 +171,43 @@ class PDFEditWindow(QMainWindow):
             print(f"{content_type} selected")
 
     def add_text(self):
+
         if self.document is None:
             return
 
-        content = create_text_content(self)
+        content = create_text_content(
+            self,
+            default_font=self.last_text_font,
+            default_size=self.last_text_size,
+            default_color=self.last_text_color,
+        )
 
         if content is None:
+            self.repeat_text_mode = False
             return
 
+        self.last_text_font = content["font"]
+        self.last_text_size = content["size"]
+
+        color_to_name = {
+            (0, 0, 0): "Black",
+            (1, 0, 0): "Red",
+            (0, 0, 1): "Blue",
+        }
+
+        self.last_text_color = color_to_name.get(
+            content["color"],
+            "Black",
+        )
+
+        self.repeat_text_mode = True
         self.pending_content = content
         print("Click on the PDF to place the content.")
 
     def add_date(self):
         if self.document is None:
             return
-
+        self.repeat_text_mode = False
         content = create_date_content(self)
 
         if content is None:
@@ -192,7 +219,7 @@ class PDFEditWindow(QMainWindow):
     def add_signature(self):
         if self.document is None:
             return
-
+        self.repeat_text_mode = False
         content = create_signature_content(self)
 
         if content is None:
@@ -204,7 +231,7 @@ class PDFEditWindow(QMainWindow):
     def add_image(self):
         if self.document is None:
             return
-
+        self.repeat_text_mode = False
         content = create_image_content(self)
 
         if content is None:
@@ -216,7 +243,7 @@ class PDFEditWindow(QMainWindow):
     def add_qr_code(self):
         if self.document is None:
             return
-
+        self.repeat_text_mode = False
         qr_text, ok = QInputDialog.getText(
             self,
             "Add QR Code",
@@ -267,11 +294,23 @@ class PDFEditWindow(QMainWindow):
         render_pdf_page(self)
 
     def handle_pdf_click(self, x, y):
+
         self.last_click_x = x
         self.last_click_y = y
 
         debug_print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
         debug_print(f"Pending content at click: {self.pending_content}")
+
+        if self.preview_content is not None:
+            self.preview_content["x"] = x
+            self.preview_content["y"] = y
+
+            print(
+                f"Committing preview at X={self.preview_content['x']}, "
+                f"Y={self.preview_content['y']}"
+            )
+            self.apply_preview_content()
+            return
 
         if self.pending_content is None:
             self.inspect_pdf_click(x, y)
@@ -284,8 +323,7 @@ class PDFEditWindow(QMainWindow):
         }
 
         self.pending_content = None
-
-        print(f"Preview content placed at X={x}, Y={y}")
+        print("Move the preview into position, then click to place it.")
         self.render_page()
 
     def handle_pdf_move(self, x, y):
@@ -297,17 +335,20 @@ class PDFEditWindow(QMainWindow):
         self.render_page()
 
     def handle_pdf_release(self, x, y):
-        if self.document is None:
-            return
-
-        if self.preview_content is None:
-            return
-
-        print(f"Mouse released at X={x}, Y={y}")
-        self.apply_preview_content()
+        return
 
     def apply_preview_content(self):
+        content_type = None
+        if self.preview_content is not None:
+            content_type = self.preview_content["content"].get("type")
         apply_preview(self)
+
+        if (
+                content_type == "Text"
+                and self.repeat_text_mode
+                and self.preview_content is None
+        ):
+            self.add_text()
 
     def inspect_pdf_click(self, x, y):
         if self.document is None:
@@ -389,6 +430,20 @@ class PDFEditWindow(QMainWindow):
         self.has_unsaved_changes = True
         self.selected_text_block = None
         self.render_page()
+
+    def replace_selected_image(self):
+
+        if self.selected_content is None or self.selected_content["type"] != "Image":
+            QMessageBox.information(
+                self,
+                "No Image Selected",
+                "Please select an image first."
+            )
+            return
+
+        print("Replace Selected Image")
+        print(f"Bounds: {self.selected_content['bounds']}")
+        print(f"XREF: {self.selected_content['xref']}")
 
     def delete_content_block(self):
         if self.selected_text_block is None:

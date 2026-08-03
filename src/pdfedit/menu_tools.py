@@ -37,6 +37,9 @@ def setup_edit_menu(window):
     edit_text_action = edit_menu.addAction("View/Edit Selected Text")
     edit_text_action.triggered.connect(window.view_edit_selected_text)
 
+    replace_image_action = edit_menu.addAction("Replace Selected Image")
+    replace_image_action.triggered.connect(window.replace_selected_image)
+
     delete_content_action = edit_menu.addAction("Delete Content Block")
     delete_content_action.triggered.connect(window.delete_content_block)
 

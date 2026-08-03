@@ -1,7 +1,12 @@
 from PySide6.QtWidgets import QComboBox, QDialog, QFormLayout, QLineEdit, QPushButton, QVBoxLayout
 
 
-def show_add_text_dialog(parent):
+def show_add_text_dialog(
+    parent,
+    default_font="Helvetica",
+    default_size=8,
+    default_color="Black",
+):
     dialog = QDialog(parent)
     dialog.setWindowTitle("Add Text")
 
@@ -13,6 +18,9 @@ def show_add_text_dialog(parent):
     color_dropdown = QComboBox()
 
     color_dropdown.addItems(["Black", "Red", "Blue"])
+    font_dropdown.setCurrentText(default_font)
+    size_dropdown.setCurrentText(str(default_size))
+    color_dropdown.setCurrentText(default_color)
 
     form_layout = QFormLayout()
     form_layout.addRow("Text:", text_input)
@@ -33,8 +41,19 @@ def show_add_text_dialog(parent):
         return text_input.text(), font_dropdown.currentText(), int(size_dropdown.currentText()), color_dropdown.currentText()
     return None, None, None, None
 
-def create_text_content(parent):
-    text, font_name, font_size, color_name = show_add_text_dialog(parent)
+def create_text_content(
+
+    parent,
+    default_font="Helvetica",
+    default_size=8,
+    default_color="Black",
+):
+    text, font_name, font_size, color_name = show_add_text_dialog(
+        parent,
+        default_font=default_font,
+        default_size=default_size,
+        default_color=default_color,
+    )
 
     if not text:
         return None
