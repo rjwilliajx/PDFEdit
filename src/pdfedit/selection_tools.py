@@ -101,6 +101,36 @@ def build_selected_text_block(page, x, y):
 # * Build the selected-image object used by the editor workflow.
 def build_selected_image_block(page, x, y):
     return find_image_block_at_click(page, x, y)
+# * Build a selected sub-region inside an image.
+
+def build_selected_image_region(page, start_x, start_y, end_x, end_y):
+    selected_image = find_image_block_at_click(page, start_x, start_y)
+    if selected_image is None:
+        return None
+
+    image_x0, image_y0, image_x1, image_y1 = selected_image["bounds"]
+    region_x0 = max(min(start_x, end_x), image_x0)
+    region_y0 = max(min(start_y, end_y), image_y0)
+    region_x1 = min(max(start_x, end_x), image_x1)
+    region_y1 = min(max(start_y, end_y), image_y1)
+
+    if region_x1 <= region_x0 or region_y1 <= region_y0:
+        return None
+    return {
+
+        "type": "ImageRegion",
+        "xref": selected_image["xref"],
+        "image_bounds": selected_image["bounds"],
+
+        "bounds": (
+            region_x0,
+            region_y0,
+            region_x1,
+            region_y1,
+        ),
+        "width": region_x1 - region_x0,
+        "height": region_y1 - region_y0,
+    }
 
 # * Build the selected-content object used by the editor workflow.
 def build_selected_content(page, x, y):

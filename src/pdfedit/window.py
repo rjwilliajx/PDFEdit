@@ -1,4 +1,6 @@
 import fitz
+
+from image_edit_tools import replace_selected_image as replace_image_block
 from menu_tools import setup_menus
 from debug_tools import debug_print
 from content_tools import show_add_content_menu
@@ -15,6 +17,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QScrollArea,
+    QFileDialog,
 )
 from file_tools import (
     open_pdf_file,
@@ -25,7 +28,10 @@ from file_tools import (
 )
 
 from preview_tools import apply_preview_content as apply_preview
-from selection_tools import build_selected_content
+from selection_tools import (
+    build_selected_content,
+    build_selected_image_region,
+)
 from text_edit_tools import delete_content_block
 from text_edit_tools import replace_selected_text as replace_text_block
 from viewer_tools import (
@@ -54,7 +60,7 @@ class ClickableLabel(QLabel):
         if self.press_handler:
             self.press_handler(x, y)
 
-        super().mousePressEvent(event)
+        event.accept()
 
     def mouseMoveEvent(self, event):
         x = int(event.position().x())
@@ -63,7 +69,7 @@ class ClickableLabel(QLabel):
         if self.move_handler:
             self.move_handler(x, y)
 
-        super().mouseMoveEvent(event)
+        event.accept()
 
     def mouseReleaseEvent(self, event):
         x = int(event.position().x())
@@ -72,14 +78,19 @@ class ClickableLabel(QLabel):
         if self.release_handler:
             self.release_handler(x, y)
 
-        super().mouseReleaseEvent(event)
+        event.accept()
 
 
 class PDFEditWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-
+        self.is_selecting_region = False
+        self.region_start_x = None
+        self.region_start_y = None
+        self.region_end_x = None
+        self.region_end_y = None
+        self.selected_image_region = None
         self.document = None
         self.pending_text = None
         self.pending_font = None
@@ -295,6 +306,9 @@ class PDFEditWindow(QMainWindow):
 
     def handle_pdf_click(self, x, y):
 
+        x = x / self.zoom_level
+        y = y / self.zoom_level
+
         self.last_click_x = x
         self.last_click_y = y
 
@@ -313,6 +327,25 @@ class PDFEditWindow(QMainWindow):
             return
 
         if self.pending_content is None:
+
+            if (
+                    self.selected_content is not None
+                    and self.selected_content["type"] == "Image"
+            ):
+
+                x0, y0, x1, y1 = self.selected_content["bounds"]
+
+                if x0 <= x <= x1 and y0 <= y <= y1:
+                    self.is_selecting_region = True
+                    self.region_start_x = x
+                    self.region_start_y = y
+                    self.region_end_x = x
+                    self.region_end_y = y
+                    self.selected_image_region = None
+
+                    print(f"Started image-region selection at X={x}, Y={y}")
+                    return
+
             self.inspect_pdf_click(x, y)
             return
 
@@ -327,6 +360,23 @@ class PDFEditWindow(QMainWindow):
         self.render_page()
 
     def handle_pdf_move(self, x, y):
+
+        x = x / self.zoom_level
+        y = y / self.zoom_level
+
+        if self.is_selecting_region:
+            self.region_end_x = x
+            self.region_end_y = y
+            self.selected_image_region = build_selected_image_region(
+                self.document.load_page(self.current_page),
+                self.region_start_x,
+                self.region_start_y,
+                self.region_end_x,
+                self.region_end_y,
+            )
+            self.render_page()
+            return
+
         if self.preview_content is None:
             return
 
@@ -335,7 +385,32 @@ class PDFEditWindow(QMainWindow):
         self.render_page()
 
     def handle_pdf_release(self, x, y):
-        return
+
+        x = x / self.zoom_level
+        y = y / self.zoom_level
+
+        if self.is_selecting_region:
+            self.region_end_x = x
+            self.region_end_y = y
+            self.selected_image_region = build_selected_image_region(
+                self.document.load_page(self.current_page),
+                self.region_start_x,
+                self.region_start_y,
+                self.region_end_x,
+                self.region_end_y,
+            )
+            self.is_selecting_region = False
+
+            if self.selected_image_region is not None:
+                x0, y0, x1, y1 = self.selected_image_region["bounds"]
+
+                print("Image region selected:")
+                print(
+                    f"Bounds: X={x0:.2f} to {x1:.2f}, "
+                    f"Y={y0:.2f} to {y1:.2f}"
+                )
+            self.render_page()
+            return
 
     def apply_preview_content(self):
         content_type = None
@@ -351,6 +426,10 @@ class PDFEditWindow(QMainWindow):
             self.add_text()
 
     def inspect_pdf_click(self, x, y):
+
+        self.selected_image_region = None
+        self.is_selecting_region = False
+
         if self.document is None:
             self.selected_content = None
             self.selected_text_block = None
@@ -441,9 +520,40 @@ class PDFEditWindow(QMainWindow):
             )
             return
 
-        print("Replace Selected Image")
-        print(f"Bounds: {self.selected_content['bounds']}")
-        print(f"XREF: {self.selected_content['xref']}")
+        if self.selected_image_region is None:
+            QMessageBox.information(
+                self,
+                "No Image Region Selected",
+                "Please select the part of the image you want to replace."
+
+            )
+            return
+
+        replacement_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose Replacement Image",
+            "",
+            "Image Files (*.png *.jpg *.jpeg *.bmp)"
+        )
+
+        if not replacement_path:
+            return
+
+        replaced = replace_image_block(
+            self.document,
+            self.current_page,
+            self.selected_content,
+            self.selected_image_region,
+            replacement_path,
+        )
+
+        if not replaced:
+            return
+
+        self.has_unsaved_changes = True
+        self.selected_content = None
+        self.render_page()
+
 
     def delete_content_block(self):
         if self.selected_text_block is None:

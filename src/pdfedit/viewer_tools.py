@@ -80,6 +80,24 @@ def draw_selected_content(image, selected_content, zoom_level):
     )
     painter.end()
 
+    # * Draw the selected image-region outline on the rendered page image.
+
+def draw_selected_image_region(image, selected_image_region, zoom_level):
+
+    if selected_image_region is None:
+        return
+
+    x0, y0, x1, y1 = selected_image_region["bounds"]
+    painter = QPainter(image)
+    painter.setPen(QColor(0, 200, 0))
+    painter.drawRect(
+        int(x0 * zoom_level),
+        int(y0 * zoom_level),
+        int((x1 - x0) * zoom_level),
+        int((y1 - y0) * zoom_level),
+    )
+
+    painter.end()
 
 # * Render the active PDF page into the main display label.
 def render_pdf_page(window):
@@ -107,6 +125,12 @@ def render_pdf_page(window):
     draw_selected_content(
         image,
         window.selected_content,
+        window.zoom_level,
+    )
+
+    draw_selected_image_region(
+        image,
+        window.selected_image_region,
         window.zoom_level,
     )
 

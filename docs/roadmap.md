@@ -86,7 +86,7 @@
 
 - [x] Save As
 
-## Editor v0.4 (Planned)
+## Editor v0.4 (Completed — Core Functionality)
 ## Edit Existing Text (Completed)
 
 - [x] Select text block
@@ -123,18 +123,26 @@
 - [ ] Font color changes
 - [ ] Mixed formatting within a text block
 
-## Image Editor v0.5 (In Progress)
+## Image Editor v0.5 (Completed — Core Functionality)
 
 ### Image Selection (Completed)
 
 - [x] Select image
 - [x] Highlight selected image
 - [x] Display image information
+- [x] Select rectangular region within image
+- [x] Highlight selected image region
+- [x] Clear image region when selection changes
+
+### Image Editing
 
 ### Image Editing
 
 - [ ] View image properties
-- [ ] Replace selected image
+- [x] Replace selected image region using overlay
+- [x] Preserve replacement image aspect ratio
+- [x] Correct replacement image EXIF orientation
+- [x] Save and reopen PDF with replacement images
 - [ ] Resize selected image
 - [ ] Reposition selected image
 - [ ] Delete selected image
@@ -152,18 +160,24 @@
 - [ ] Keyboard nudging for precise placement
 
 
-
 ## Next Development Priorities
 
-1. Replace selected image
-2. Delete selected image
-3. Reposition selected image
-4. Resize selected image
-5. Migrate image placement to the preview engine
-6. Migrate date, signature, and QR placement to the preview engine
-7. Rich text formatting
+1. Validate core functionality through regression testing
+2. Package PDFEdit for distribution
+3. Test packaged application on macOS
+4. Prepare external testing and feedback process
+5. Resolve defects identified during testing
+6. Evaluate deferred Editor and Image Editor enhancements
 
-## Wrapper v1.0 (Planned)
+## Wrapitor v1.0 (Planned)
 
-- [ ] Packaging
-- [ ] Distribution
+- [ ] Review runtime dependencies
+- [ ] Create standalone macOS application
+- [ ] Include required fonts and application assets
+- [ ] Verify PDF viewing and editing in packaged application
+- [ ] Verify Save As and Print
+- [ ] Test application outside PyCharm
+- [ ] Prepare distribution package
+- [ ] Prepare tester instructions
+- [ ] Distribute test release
+- [ ] Collect and review tester feedback
