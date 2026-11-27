@@ -1,14 +1,17 @@
+# * Main PDFEdit application window.
+
 import fitz
 
 from image_edit_tools import replace_selected_image as replace_image_block
 from menu_tools import setup_menus
 from debug_tools import debug_print
 from content_tools import show_add_content_menu
-from text_tools import create_text_content
+from text_tools import create_text_content, show_edit_text_dialog
 from date_tools import create_date_content
 from signature_tools import create_signature_content
 from image_tools import create_image_content
 from qr_tools import generate_qr_code
+
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QToolBar,
@@ -19,6 +22,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QFileDialog,
 )
+
 from file_tools import (
     open_pdf_file,
     close_pdf_file,
@@ -28,12 +32,16 @@ from file_tools import (
 )
 
 from preview_tools import apply_preview_content as apply_preview
+
 from selection_tools import (
     build_selected_content,
     build_selected_image_region,
 )
+
 from text_edit_tools import delete_content_block
 from text_edit_tools import replace_selected_text as replace_text_block
+from text_edit_tools import move_selected_text as move_text_block
+
 from viewer_tools import (
     go_to_next_page,
     go_to_previous_page,
@@ -41,7 +49,6 @@ from viewer_tools import (
     zoom_page_in,
     zoom_page_out,
 )
-
 
 
 class ClickableLabel(QLabel):
@@ -85,12 +92,14 @@ class PDFEditWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+
         self.is_selecting_region = False
         self.region_start_x = None
         self.region_start_y = None
         self.region_end_x = None
         self.region_end_y = None
         self.selected_image_region = None
+
         self.document = None
         self.pending_text = None
         self.pending_font = None
@@ -98,6 +107,28 @@ class PDFEditWindow(QMainWindow):
         self.pending_color = None
         self.pending_content = None
         self.preview_content = None
+
+        # * Track text additions until Save As commits them.
+        self.movable_text_items = []
+        self.selected_movable_text = None
+        self.dragging_movable_text = False
+        self.movable_text_drag_offset_x = 0
+        self.movable_text_drag_offset_y = 0
+
+        # * Track repositioning of existing PDF text.
+        self.dragging_existing_text = False
+        self.existing_text_drag_start_x = None
+        self.existing_text_drag_start_y = None
+        self.existing_text_drag_page = None
+        self.existing_text_drag_block = None
+        self.existing_text_drag_threshold = 5
+
+        # * Track the temporary existing-text drag preview.
+        self.existing_text_preview_document = None
+        self.existing_text_preview_spans = []
+        self.existing_text_drag_delta_x = 0
+        self.existing_text_drag_delta_y = 0
+
         self.selected_content = None
         self.selected_text_block = None
         self.is_dragging_preview = False
@@ -105,9 +136,11 @@ class PDFEditWindow(QMainWindow):
         self.drag_offset_y = 0
         self.preview_moved = False
         self.repeat_text_mode = False
+
         self.last_text_font = "Helvetica"
         self.last_text_size = 8
         self.last_text_color = "Black"
+
         self.current_page = 0
         self.zoom_level = 1.0
         self.current_file_path = None
@@ -129,6 +162,7 @@ class PDFEditWindow(QMainWindow):
         self.label.press_handler = self.handle_pdf_click
         self.label.move_handler = self.handle_pdf_move
         self.label.release_handler = self.handle_pdf_release
+
         self.label.setStyleSheet("font-size: 16px;")
         self.label.setMargin(30)
 
@@ -156,6 +190,7 @@ class PDFEditWindow(QMainWindow):
         self.navigation_toolbar.addAction(next_page_action)
 
     def add_content(self):
+
         content_type = show_add_content_menu(self)
 
         if content_type is None:
@@ -213,11 +248,14 @@ class PDFEditWindow(QMainWindow):
 
         self.repeat_text_mode = True
         self.pending_content = content
+
         print("Click on the PDF to place the content.")
 
     def add_date(self):
+
         if self.document is None:
             return
+
         self.repeat_text_mode = False
         content = create_date_content(self)
 
@@ -228,8 +266,10 @@ class PDFEditWindow(QMainWindow):
         print("Click on the PDF to place the content.")
 
     def add_signature(self):
+
         if self.document is None:
             return
+
         self.repeat_text_mode = False
         content = create_signature_content(self)
 
@@ -240,8 +280,10 @@ class PDFEditWindow(QMainWindow):
         print("Click on the PDF to place the content.")
 
     def add_image(self):
+
         if self.document is None:
             return
+
         self.repeat_text_mode = False
         content = create_image_content(self)
 
@@ -252,13 +294,16 @@ class PDFEditWindow(QMainWindow):
         print("Click on the PDF to place the content.")
 
     def add_qr_code(self):
+
         if self.document is None:
             return
+
         self.repeat_text_mode = False
+
         qr_text, ok = QInputDialog.getText(
             self,
             "Add QR Code",
-            "Enter URL or text:"
+            "Enter URL or text:",
         )
 
         if not ok or not qr_text.strip():
@@ -304,6 +349,37 @@ class PDFEditWindow(QMainWindow):
     def render_page(self):
         render_pdf_page(self)
 
+    def find_movable_text_at(self, x, y):
+
+        if self.document is None:
+            return None
+
+        for item in reversed(self.movable_text_items):
+
+            if item["page"] != self.current_page:
+                continue
+
+            content = item["content"]
+            font_size = content["size"]
+            text = content["text"]
+
+            # * Approximate text bounds in PDF coordinates.
+            text_width = fitz.get_text_length(
+                text,
+                fontname=content["font"],
+                fontsize=font_size,
+            )
+
+            x0 = item["x"]
+            y0 = item["y"] - font_size
+            x1 = x0 + text_width
+            y1 = item["y"] + font_size * 0.25
+
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                return item
+
+        return None
+
     def handle_pdf_click(self, x, y):
 
         x = x / self.zoom_level
@@ -312,10 +388,17 @@ class PDFEditWindow(QMainWindow):
         self.last_click_x = x
         self.last_click_y = y
 
-        debug_print(f"Stored X={self.last_click_x}, Stored Y={self.last_click_y}")
-        debug_print(f"Pending content at click: {self.pending_content}")
+        debug_print(
+            f"Stored X={self.last_click_x}, "
+            f"Stored Y={self.last_click_y}"
+        )
+
+        debug_print(
+            f"Pending content at click: {self.pending_content}"
+        )
 
         if self.preview_content is not None:
+
             self.preview_content["x"] = x
             self.preview_content["y"] = y
 
@@ -323,19 +406,45 @@ class PDFEditWindow(QMainWindow):
                 f"Committing preview at X={self.preview_content['x']}, "
                 f"Y={self.preview_content['y']}"
             )
+
             self.apply_preview_content()
             return
 
         if self.pending_content is None:
 
+            # * Check whether the user clicked newly added text.
+            movable_item = self.find_movable_text_at(x, y)
+
+            if movable_item is not None:
+
+                self.selected_movable_text = movable_item
+                self.dragging_movable_text = True
+
+                self.movable_text_drag_offset_x = (
+                    x - movable_item["x"]
+                )
+
+                self.movable_text_drag_offset_y = (
+                    y - movable_item["y"]
+                )
+
+                self.selected_content = None
+                self.selected_text_block = None
+
+                self.render_page()
+                return
+
+            self.selected_movable_text = None
+
             if (
-                    self.selected_content is not None
-                    and self.selected_content["type"] == "Image"
+                self.selected_content is not None
+                and self.selected_content["type"] == "Image"
             ):
 
                 x0, y0, x1, y1 = self.selected_content["bounds"]
 
                 if x0 <= x <= x1 and y0 <= y <= y1:
+
                     self.is_selecting_region = True
                     self.region_start_x = x
                     self.region_start_y = y
@@ -343,10 +452,26 @@ class PDFEditWindow(QMainWindow):
                     self.region_end_y = y
                     self.selected_image_region = None
 
-                    print(f"Started image-region selection at X={x}, Y={y}")
+                    print(
+                        f"Started image-region selection at X={x}, Y={y}"
+                    )
+
                     return
 
             self.inspect_pdf_click(x, y)
+
+            # * Prepare selected PDF text for repositioning.
+            if self.selected_text_block is not None:
+
+                self.dragging_existing_text = True
+                self.existing_text_drag_start_x = x
+                self.existing_text_drag_start_y = y
+                self.existing_text_drag_page = self.current_page
+
+                self.existing_text_drag_block = (
+                    self.selected_text_block.copy()
+                )
+
             return
 
         self.preview_content = {
@@ -356,17 +481,139 @@ class PDFEditWindow(QMainWindow):
         }
 
         self.pending_content = None
+
         print("Move the preview into position, then click to place it.")
+
         self.render_page()
+
+    # * Prepare a temporary PDF for existing-text dragging.
+    def prepare_existing_text_preview(self):
+
+        if (
+            self.document is None
+            or self.existing_text_drag_block is None
+        ):
+            return False
+
+        preview_document = None
+
+        try:
+
+            preview_document = fitz.open(
+                "pdf",
+                self.document.tobytes(),
+            )
+
+            page = preview_document.load_page(self.current_page)
+
+            original_rect = fitz.Rect(
+                self.existing_text_drag_block["bounds"]
+            )
+
+            spans = []
+
+            # * Capture the original text and formatting.
+            for block in page.get_text("dict")["blocks"]:
+
+                if block.get("type") != 0:
+                    continue
+
+                for line in block["lines"]:
+
+                    for span in line["spans"]:
+
+                        span_rect = fitz.Rect(span["bbox"])
+
+                        if original_rect.contains(span_rect):
+
+                            if tuple(line["dir"]) != (1.0, 0.0):
+                                preview_document.close()
+                                return False
+
+                            spans.append(span)
+
+            if not spans:
+                preview_document.close()
+                return False
+
+            # * Remove text from the temporary page only.
+            page.add_redact_annot(
+                original_rect,
+                fill=False,
+            )
+
+            page.apply_redactions(
+                images=0,
+                graphics=0,
+                text=0,
+            )
+
+            self.existing_text_preview_document = preview_document
+            self.existing_text_preview_spans = spans
+            self.existing_text_drag_delta_x = 0
+            self.existing_text_drag_delta_y = 0
+
+            return True
+
+        except Exception as error:
+
+            if preview_document is not None:
+                preview_document.close()
+
+            print(f"Text drag preview failed: {error}")
+
+            return False
 
     def handle_pdf_move(self, x, y):
 
         x = x / self.zoom_level
         y = y / self.zoom_level
 
+        # * Reposition existing PDF text while dragging.
+        if self.dragging_existing_text:
+
+            delta_x = x - self.existing_text_drag_start_x
+            delta_y = y - self.existing_text_drag_start_y
+
+            distance = (delta_x ** 2 + delta_y ** 2) ** 0.5
+
+            if self.existing_text_preview_document is None:
+
+                if distance < self.existing_text_drag_threshold:
+                    return
+
+                if not self.prepare_existing_text_preview():
+                    return
+
+            self.existing_text_drag_delta_x = delta_x
+            self.existing_text_drag_delta_y = delta_y
+
+            self.render_page()
+            return
+
+        # * Reposition newly added text while dragging.
+        if (
+            self.dragging_movable_text
+            and self.selected_movable_text is not None
+        ):
+
+            self.selected_movable_text["x"] = (
+                x - self.movable_text_drag_offset_x
+            )
+
+            self.selected_movable_text["y"] = (
+                y - self.movable_text_drag_offset_y
+            )
+
+            self.render_page()
+            return
+
+        # * Update the selected image region.
         if self.is_selecting_region:
+
             self.region_end_x = x
             self.region_end_y = y
+
             self.selected_image_region = build_selected_image_region(
                 self.document.load_page(self.current_page),
                 self.region_start_x,
@@ -374,6 +621,7 @@ class PDFEditWindow(QMainWindow):
                 self.region_end_x,
                 self.region_end_y,
             )
+
             self.render_page()
             return
 
@@ -382,6 +630,7 @@ class PDFEditWindow(QMainWindow):
 
         self.preview_content["x"] = x
         self.preview_content["y"] = y
+
         self.render_page()
 
     def handle_pdf_release(self, x, y):
@@ -389,9 +638,100 @@ class PDFEditWindow(QMainWindow):
         x = x / self.zoom_level
         y = y / self.zoom_level
 
+        # * Finish repositioning existing PDF text.
+        if self.dragging_existing_text:
+
+            delta_x = x - self.existing_text_drag_start_x
+            delta_y = y - self.existing_text_drag_start_y
+
+            selected_block = self.existing_text_drag_block
+            page_number = self.existing_text_drag_page
+
+            # * Close and clear the temporary drag preview.
+            if self.existing_text_preview_document is not None:
+                self.existing_text_preview_document.close()
+
+            self.existing_text_preview_document = None
+            self.existing_text_preview_spans = []
+            self.existing_text_drag_delta_x = 0
+            self.existing_text_drag_delta_y = 0
+
+            # * Clear existing-text drag state.
+            self.dragging_existing_text = False
+            self.existing_text_drag_start_x = None
+            self.existing_text_drag_start_y = None
+            self.existing_text_drag_page = None
+            self.existing_text_drag_block = None
+
+            distance = (delta_x ** 2 + delta_y ** 2) ** 0.5
+
+            if distance < self.existing_text_drag_threshold:
+                self.render_page()
+                return
+
+            if (
+                self.document is None
+                or page_number != self.current_page
+            ):
+                self.render_page()
+                return
+
+            moved_document = move_text_block(
+                self.document,
+                page_number,
+                selected_block,
+                delta_x,
+                delta_y,
+            )
+
+            if moved_document is None:
+
+                self.render_page()
+
+                QMessageBox.warning(
+                    self,
+                    "Move Text Failed",
+                    "The selected text could not be repositioned.",
+                )
+
+                return
+
+            previous_document = self.document
+            self.document = moved_document
+            previous_document.close()
+
+            self.has_unsaved_changes = True
+            self.selected_content = None
+            self.selected_text_block = None
+
+            self.render_page()
+            return
+
+        # * Finish repositioning newly added text.
+        if self.dragging_movable_text:
+
+            if self.selected_movable_text is not None:
+
+                self.selected_movable_text["x"] = (
+                    x - self.movable_text_drag_offset_x
+                )
+
+                self.selected_movable_text["y"] = (
+                    y - self.movable_text_drag_offset_y
+                )
+
+            self.dragging_movable_text = False
+            self.has_unsaved_changes = True
+
+            self.render_page()
+            return
+
+        # * Finish selecting an image region.
         if self.is_selecting_region:
+
             self.region_end_x = x
             self.region_end_y = y
+
             self.selected_image_region = build_selected_image_region(
                 self.document.load_page(self.current_page),
                 self.region_start_x,
@@ -399,29 +739,39 @@ class PDFEditWindow(QMainWindow):
                 self.region_end_x,
                 self.region_end_y,
             )
+
             self.is_selecting_region = False
 
             if self.selected_image_region is not None:
+
                 x0, y0, x1, y1 = self.selected_image_region["bounds"]
 
                 print("Image region selected:")
+
                 print(
                     f"Bounds: X={x0:.2f} to {x1:.2f}, "
                     f"Y={y0:.2f} to {y1:.2f}"
                 )
+
             self.render_page()
             return
 
     def apply_preview_content(self):
+
         content_type = None
+
         if self.preview_content is not None:
-            content_type = self.preview_content["content"].get("type")
+
+            content_type = self.preview_content["content"].get(
+                "type"
+            )
+
         apply_preview(self)
 
         if (
-                content_type == "Text"
-                and self.repeat_text_mode
-                and self.preview_content is None
+            content_type == "Text"
+            and self.repeat_text_mode
+            and self.preview_content is None
         ):
             self.add_text()
 
@@ -431,69 +781,114 @@ class PDFEditWindow(QMainWindow):
         self.is_selecting_region = False
 
         if self.document is None:
+
             self.selected_content = None
             self.selected_text_block = None
+
             print("No PDF is open.")
             return
+
         page = self.document.load_page(self.current_page)
-        self.selected_content = build_selected_content(page, x, y)
+
+        self.selected_content = build_selected_content(
+            page,
+            x,
+            y,
+        )
+
         if self.selected_content is None:
+
             self.selected_text_block = None
+
             print("No editable content found at that location.")
+
             self.render_page()
             return
+
         x0, y0, x1, y1 = self.selected_content["bounds"]
         content_type = self.selected_content["type"]
+
         print(f"Clicked {content_type.lower()} block:")
-        print(f"Bounds: X={x0:.2f} to {x1:.2f}, Y={y0:.2f} to {y1:.2f}")
+
+        print(
+            f"Bounds: X={x0:.2f} to {x1:.2f}, "
+            f"Y={y0:.2f} to {y1:.2f}"
+        )
+
         if content_type == "Text":
+
             self.selected_text_block = self.selected_content
+
             print(f"Text: {self.selected_text_block['text']}")
+
             print(
                 f"Font: {self.selected_text_block['font_name']}, "
                 f"Size: {self.selected_text_block['font_size']}, "
                 f"Color: {self.selected_text_block['color']}"
             )
-            print(f"Line height: {self.selected_text_block['line_height']}")
+
+            print(
+                f"Line height: "
+                f"{self.selected_text_block['line_height']}"
+            )
+
         elif content_type == "Image":
+
             self.selected_text_block = None
+
             print(f"XREF: {self.selected_content['xref']}")
+
             print(
                 f"Image size: {self.selected_content['width']:.2f} x "
                 f"{self.selected_content['height']:.2f} points"
             )
+
         self.render_page()
 
+    # * Edit selected PDF text and formatting.
     def view_edit_selected_text(self):
         if self.selected_text_block is None:
             QMessageBox.information(
                 self,
                 "No Text Selected",
-                "Please select a text block first."
+                "Please select a text block first.",
             )
             return
 
-        selected_block = self.selected_text_block
-
-        edited_text, ok = QInputDialog.getMultiLineText(
+        updated_block = show_edit_text_dialog(
             self,
-            "View/Edit Selected Text",
-            "Selected Text:",
-            selected_block["text"],
+            self.selected_text_block,
         )
 
-        if not ok:
+        if updated_block is None:
             return
 
-        selected_block["text"] = edited_text
-        self.selected_text_block = selected_block
+        original_block = self.selected_text_block
+        self.selected_text_block = updated_block
 
-        print("Updated selected text:")
-        print(self.selected_text_block["text"])
+        replaced = replace_text_block(
+            self.document,
+            self.current_page,
+            self.selected_text_block,
+        )
 
-        self.replace_selected_text()
+        if not replaced:
+            self.selected_text_block = original_block
+
+            QMessageBox.warning(
+                self,
+                "Edit Text Failed",
+                "The updated text could not fit within the available area.",
+            )
+            return
+
+        self.has_unsaved_changes = True
+        self.selected_text_block = None
+        self.selected_content = None
+        self.render_page()
 
     def replace_selected_text(self):
+
         if self.selected_text_block is None:
             return
 
@@ -508,32 +903,39 @@ class PDFEditWindow(QMainWindow):
 
         self.has_unsaved_changes = True
         self.selected_text_block = None
+
         self.render_page()
 
     def replace_selected_image(self):
 
-        if self.selected_content is None or self.selected_content["type"] != "Image":
+        if (
+            self.selected_content is None
+            or self.selected_content["type"] != "Image"
+        ):
+
             QMessageBox.information(
                 self,
                 "No Image Selected",
-                "Please select an image first."
+                "Please select an image first.",
             )
+
             return
 
         if self.selected_image_region is None:
+
             QMessageBox.information(
                 self,
                 "No Image Region Selected",
-                "Please select the part of the image you want to replace."
-
+                "Please select the part of the image you want to replace.",
             )
+
             return
 
         replacement_path, _ = QFileDialog.getOpenFileName(
             self,
             "Choose Replacement Image",
             "",
-            "Image Files (*.png *.jpg *.jpeg *.bmp)"
+            "Image Files (*.png *.jpg *.jpeg *.bmp)",
         )
 
         if not replacement_path:
@@ -552,31 +954,43 @@ class PDFEditWindow(QMainWindow):
 
         self.has_unsaved_changes = True
         self.selected_content = None
+
         self.render_page()
 
-
     def delete_content_block(self):
+
         if self.selected_text_block is None:
+
             QMessageBox.information(
                 self,
                 "No Text Selected",
-                "Please select a text block first."
+                "Please select a text block first.",
             )
+
             return
 
         confirmation_box = QMessageBox(self)
+
         confirmation_box.setWindowTitle("Delete Content Block")
         confirmation_box.setIcon(QMessageBox.Icon.Warning)
         confirmation_box.setText("Delete Content Block")
+
         confirmation_box.setInformativeText(
-            "This will permanently delete the selected content block from the PDF.\n\n"
+            "This will permanently delete the selected content "
+            "block from the PDF.\n\n"
             "This action cannot be undone.\n\n"
             "Do you want to continue?"
         )
+
         confirmation_box.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes
+            | QMessageBox.StandardButton.No
         )
-        confirmation_box.setDefaultButton(QMessageBox.StandardButton.No)
+
+        confirmation_box.setDefaultButton(
+            QMessageBox.StandardButton.No
+        )
+
         confirmation = confirmation_box.exec()
 
         if confirmation != QMessageBox.StandardButton.Yes:
@@ -593,4 +1007,5 @@ class PDFEditWindow(QMainWindow):
 
         self.has_unsaved_changes = True
         self.selected_text_block = None
+
         self.render_page()

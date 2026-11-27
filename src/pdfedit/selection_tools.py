@@ -8,6 +8,10 @@ def find_text_block_at_click(page, x, y):
     blocks = page.get_text("blocks")
 
     for block in blocks:
+        # * Ignore non-text blocks.
+        if block[6] != 0:
+            continue
+
         x0, y0, x1, y1, text = block[:5]
 
         if x0 <= x <= x1 and y0 <= y <= y1:
@@ -16,6 +20,8 @@ def find_text_block_at_click(page, x, y):
                 "bounds": (x0, y0, x1, y1),
                 "text": text.strip(),
             }
+
+    return None
 
 # * Find the image block located at the clicked PDF coordinates.
 def find_image_block_at_click(page, x, y):
@@ -134,7 +140,10 @@ def build_selected_image_region(page, start_x, start_y, end_x, end_y):
 
 # * Build the selected-content object used by the editor workflow.
 def build_selected_content(page, x, y):
-    selected_image = build_selected_image_block(page, x, y)
-    if selected_image is not None:
-        return selected_image
-    return build_selected_text_block(page, x, y)
+    # * Give text priority over underlying images.
+    selected_text = build_selected_text_block(page, x, y)
+
+    if selected_text is not None:
+        return selected_text
+
+    return build_selected_image_block(page, x, y)

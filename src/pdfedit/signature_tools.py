@@ -6,9 +6,14 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
 )
+import sys
 from pathlib import Path
 from debug_tools import debug_print
-FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
+
+if getattr(sys, "frozen", False):
+    FONT_DIR = Path(sys._MEIPASS) / "assets" / "fonts"
+else:
+    FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 
 
 def show_add_signature_dialog(parent):
@@ -64,7 +69,7 @@ def create_signature_content(parent):
 
     font_map = {
         "Great Vibes": FONT_DIR / "GreatVibes-Regular.ttf",
-        "Allura": FONT_DIR / "Allura-Regular.ttf",
+        "Allura": FONT_DIR / "allura-regular.ttf",
         "Dancing Script": FONT_DIR / "DancingScript-Regular.ttf",
     }
 

@@ -9,8 +9,9 @@ import fitz
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 from PySide6.QtGui import QPainter
+import io
 
-
+# * Open a PDF file and update the active window state.
 # * Open a PDF file and update the active window state.
 def open_pdf_file(window):
     file_path, _ = QFileDialog.getOpenFileName(
@@ -28,7 +29,19 @@ def open_pdf_file(window):
     window.current_file_path = file_path
     window.current_page = 0
     window.has_unsaved_changes = False
+
+    # * Clear temporary editing and placement state.
     window.selected_text_block = None
+    window.selected_content = None
+    window.selected_image_region = None
+    window.movable_text_items.clear()
+    window.selected_movable_text = None
+    window.dragging_movable_text = False
+    window.pending_content = None
+    window.preview_content = None
+    window.repeat_text_mode = False
+    window.is_selecting_region = False
+
     window.render_page()
 
     return True
@@ -76,12 +89,41 @@ def save_pdf_as_file(window):
         return False
 
     try:
-        window.document.save(
-            str(target_path),
+        # * Create an independent copy of the working PDF.
+        pdf_bytes = window.document.tobytes(
             garbage=3,
             deflate=True,
             encryption=fitz.PDF_ENCRYPT_KEEP,
         )
+
+        working_document = fitz.open(
+            stream=io.BytesIO(pdf_bytes),
+            filetype="pdf",
+        )
+
+        try:
+            # * Commit movable text to its final position.
+            for item in window.movable_text_items:
+                page = working_document.load_page(item["page"])
+                content = item["content"]
+
+                page.insert_text(
+                    (item["x"], item["y"]),
+                    content["text"],
+                    fontname=content["font"],
+                    fontsize=content["size"],
+                    color=content["color"],
+                )
+
+            working_document.save(
+                str(target_path),
+                garbage=3,
+                deflate=True,
+                encryption=fitz.PDF_ENCRYPT_KEEP,
+            )
+
+        finally:
+            working_document.close()
 
     except Exception as error:
         QMessageBox.critical(
@@ -90,6 +132,24 @@ def save_pdf_as_file(window):
             f"PDFEdit could not save the PDF:\n\n{error}",
         )
         return False
+
+    # * Load the saved PDF containing the committed text.
+    saved_document = fitz.open(str(target_path))
+    previous_document = window.document
+    window.document = saved_document
+    previous_document.close()
+
+    # * Clear temporary editing and placement state.
+    window.selected_text_block = None
+    window.selected_content = None
+    window.selected_image_region = None
+    window.movable_text_items.clear()
+    window.selected_movable_text = None
+    window.dragging_movable_text = False
+    window.pending_content = None
+    window.preview_content = None
+    window.repeat_text_mode = False
+    window.is_selecting_region = False
 
     window.current_file_path = str(target_path)
     window.has_unsaved_changes = False
@@ -123,6 +183,15 @@ def close_pdf_file(window):
     window.current_file_path = None
     window.has_unsaved_changes = False
     window.selected_text_block = None
+    window.selected_content = None
+    window.selected_image_region = None
+    window.movable_text_items.clear()
+    window.selected_movable_text = None
+    window.dragging_movable_text = False
+    window.pending_content = None
+    window.preview_content = None
+    window.repeat_text_mode = False
+    window.is_selecting_region = False
     window.label.clear()
     window.label.setMargin(30)
     window.label.setText("PDFEdit")
@@ -132,6 +201,7 @@ def close_pdf_file(window):
 
 
 # * Reload the original PDF from disk.
+# * Reload the active PDF from disk.
 def reset_pdf_file(window):
     if window.current_file_path is None:
         return False
@@ -139,7 +209,19 @@ def reset_pdf_file(window):
     window.document = fitz.open(window.current_file_path)
     window.current_page = 0
     window.has_unsaved_changes = False
+
+    # * Clear temporary editing and placement state.
     window.selected_text_block = None
+    window.selected_content = None
+    window.selected_image_region = None
+    window.movable_text_items.clear()
+    window.selected_movable_text = None
+    window.dragging_movable_text = False
+    window.pending_content = None
+    window.preview_content = None
+    window.repeat_text_mode = False
+    window.is_selecting_region = False
+
     window.render_page()
 
     return True

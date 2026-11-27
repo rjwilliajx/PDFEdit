@@ -41,7 +41,15 @@ def apply_preview_content(window):
 
     page = window.document.load_page(window.current_page)
 
-    if content["type"] in ["Text", "Date"]:
+    if content["type"] == "Text":
+        window.movable_text_items.append({
+            "page": window.current_page,
+            "content": content.copy(),
+            "x": x,
+            "y": y,
+        })
+
+    elif content["type"] == "Date":
         page.insert_text(
             (x, y),
             content["text"],
